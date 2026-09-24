@@ -2,7 +2,7 @@ import { requireAdmin } from "@/lib/auth";
 import { checkinStore } from "@/lib/store";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const denied = requireAdmin(request);
+  const denied = await requireAdmin(request);
   if (denied) return denied;
   const { id } = await params;
   if (!/^[a-f0-9-]{36}$/.test(id)) return new Response("Invalid attachment", { status: 400 });
