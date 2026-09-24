@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { requireAdmin } from "@/lib/auth";
+import { requireSameOrigin } from "@/lib/request";
 import { validateConfig, windowAt, type EmbedTemplate } from "@/lib/checkin/core";
 import { validateUpload } from "@/lib/checkin/sheets";
 import { checkinStore } from "@/lib/store";
@@ -12,7 +12,7 @@ function string(form: FormData, key: string): string {
 }
 
 export async function POST(request: Request) {
-  const denied = await requireAdmin(request, true);
+  const denied = requireSameOrigin(request);
   if (denied) return denied;
   try {
     const form = await request.formData();

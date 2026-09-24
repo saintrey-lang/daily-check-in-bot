@@ -1,10 +1,7 @@
-import { requireAdmin } from "@/lib/auth";
 import { windowAt } from "@/lib/checkin/core";
 import { checkinStore } from "@/lib/store";
 
-export async function GET(request: Request) {
-  const denied = await requireAdmin(request);
-  if (denied) return denied;
+export async function GET() {
   try {
     const store = checkinStore();
     await store.setup();

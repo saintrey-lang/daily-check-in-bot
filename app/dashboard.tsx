@@ -116,17 +116,12 @@ export default function Dashboard() {
     finally { setWorking(false); }
   }
 
-  async function logout() {
-    await fetch("/api/logout", { method: "POST" });
-    window.location.assign("/login");
-  }
-
   const active = Boolean(status?.window);
   const phase = !status?.config.startedAt ? "DRAFT" : active ? status?.prompt ? "LIVE" : "WAITING FOR BOT" : "COMPLETE";
   return <div className="shell">
     <aside className="sidebar"><div className="brand"><span className="brand-mark">✦</span><div><b>DAYMARK</b><small>CHECK-IN STUDIO</small></div></div>
       <nav><a className="nav-active" href="#overview"><span>◫</span> Overview</a><a href="#messages"><span>✎</span> Embed messages</a><a href="#schedule"><span>◷</span> Daily codes</a>{status && <a href={`https://docs.google.com/spreadsheets/d/${status.config.sheetId}/edit`} target="_blank" rel="noreferrer"><span>▤</span> Check-in Sheet ↗</a>}</nav>
-      <div className="sidebar-bottom"><span className="bot-dot" /> Discord check-in bot<br /><button type="button" onClick={logout}>Sign out ↗</button></div>
+      <div className="sidebar-bottom"><span className="bot-dot" /> Discord check-in bot</div>
     </aside>
     <main className="content" id="overview">
       <header className="topbar"><span className="breadcrumb">EVENTS <span>/</span> DAILY CHECK-IN</span><span className="topbar-right">15-DAY CAMPAIGN <span className="avatar">GS</span></span></header>
