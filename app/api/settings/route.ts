@@ -12,7 +12,7 @@ function string(form: FormData, key: string): string {
 }
 
 export async function POST(request: Request) {
-  const denied = requireAdmin(request, true);
+  const denied = await requireAdmin(request, true);
   if (denied) return denied;
   try {
     const form = await request.formData();
