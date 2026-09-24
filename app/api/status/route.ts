@@ -3,7 +3,7 @@ import { windowAt } from "@/lib/checkin/core";
 import { checkinStore } from "@/lib/store";
 
 export async function GET(request: Request) {
-  const denied = requireAdmin(request);
+  const denied = await requireAdmin(request);
   if (denied) return denied;
   try {
     const store = checkinStore();
