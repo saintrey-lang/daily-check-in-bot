@@ -1,0 +1,438 @@
+--- a/app/api/discord/interactions/route.ts
++++ b/app/api/discord/interactions/route.ts
+@@ -33,6 +33,7 @@
+ import { refreshYouTubeMetrics } from "@/lib/services/metrics";
+ import type { DiscordInteraction, DiscordMessagePayload } from "@/lib/types";
+ import { discordUser } from "@/lib/utils";
++import { STARPLAYER_MENU_ID, STARPLAYER_MODAL_PREFIX, handleStarplayerMenu, handleStarplayerSubmission } from "@/lib/starplayer/interactions";
+ 
+ function finishInBackground(
+   interaction: DiscordInteraction,
+@@ -119,6 +120,22 @@
+ 
+ async function handleModal(interaction: DiscordInteraction): Promise<Response> {
+   const modalId = interaction.data?.custom_id ?? "";
++  if (modalId.startsWith(STARPLAYER_MODAL_PREFIX)) {
++    return handleStarplayerSubmission(interaction, (task) => {
++      after(async () => {
++        try {
++          await task();
++        } catch (error) {
++          console.error("Starplayer submission failed.", error);
++          const content = error instanceof Error && /attachment|file under|expired/i.test(error.message)
++            ? error.message : "Could not record your submission. Please try again shortly.";
++          await editOriginalInteraction(interaction.application_id, interaction.token, { content }).catch((replyError) => {
++            console.error("Could not deliver the Starplayer error response.", replyError);
++          });
++        }
++      });
++    });
++  }
+   if (!modalId.startsWith("content_submit_modal")) return interactionError("Unknown form submission.");
+   const values = parseModalValues(interaction.data?.components ?? []);
+   const platformFromModal = modalId.split(":")[1];
+@@ -145,6 +162,7 @@
+ 
+ async function handleComponent(interaction: DiscordInteraction): Promise<Response> {
+   const customId = interaction.data?.custom_id || "";
++  if (customId === STARPLAYER_MENU_ID) return handleStarplayerMenu(interaction);
+   if (customId === "creator_submit") return modalResponse(buildSubmissionModal());
+   if (customId === "creator_submit_platform") {
+     const platform = normalizePlatformValue(interaction.data?.values?.[0] ?? "other");
+--- a/lib/types.ts
++++ b/lib/types.ts
+@@ -69,6 +69,9 @@
+     values?: string[];
+     options?: Array<{ name: string; type: number; value: string | number | boolean }>;
+     components?: unknown[];
++    resolved?: { attachments?: Record<string, {
++      id: string; filename: string; url: string; size: number; content_type?: string;
++    }> };
+   };
+   member?: {
+     permissions?: string;
+--- /dev/null
++++ b/lib/starplayer/core.ts
+@@ -0,0 +1,76 @@
++export const STARPLAYER_CHANNEL_ID = "1552725214868275261";
++export const STARPLAYER_SHEET_ID = "1aYqwNCdicmFhsITN9pXQE7shDw8xDeVT-5RUkIL3QsI";
++
++export const STARPLAYER_CATEGORIES = [
++  { id: "strategy-tips", label: "Strategy & Tips" },
++  { id: "engagement", label: "Engagement" },
++  { id: "version-discussion", label: "Version Discussion" },
++] as const;
++
++export type StarplayerCategory = (typeof STARPLAYER_CATEGORIES)[number]["id"];
++export type StarplayerSubmission = {
++  id: string;
++  submittedAt: string;
++  userId: string;
++  username: string;
++  displayName: string;
++  category: StarplayerCategory;
++  link: string;
++  attachmentName: string;
++  messageUrl: string;
++  messageId: string;
++  channelId: string;
++  guildId: string;
++};
++
++export function categoryFor(value: string): (typeof STARPLAYER_CATEGORIES)[number] | null {
++  return STARPLAYER_CATEGORIES.find((category) => category.id === value || category.label === value) ?? null;
++}
++
++export function validateSubmission(linkInput: string, attachmentName: string): string {
++  const link = linkInput.trim();
++  if (!link && !attachmentName) throw new Error("Add a submission link or attach a file.");
++  if (link) {
++    if (link.length > 1000) throw new Error("The submission link is too long (1,000 characters maximum).");
++    try {
++      if (new URL(link).protocol !== "https:") throw new Error("Invalid link");
++    } catch {
++      throw new Error("Use a complete https:// submission link.");
++    }
++  }
++  return link;
++}
++
++export function starplayerSummary(submissions: StarplayerSubmission[]) {
++  const people = new Map<string, {
++    userId: string; username: string; displayName: string;
++    categories: Set<StarplayerCategory>; submissions: number; latestAt: string;
++  }>();
++  for (const submission of submissions) {
++    const person = people.get(submission.userId) ?? {
++      userId: submission.userId, username: submission.username, displayName: submission.displayName,
++      categories: new Set<StarplayerCategory>(), submissions: 0, latestAt: "",
++    };
++    person.username = submission.username;
++    person.displayName = submission.displayName;
++    person.categories.add(submission.category);
++    person.submissions += 1;
++    if (submission.submittedAt > person.latestAt) person.latestAt = submission.submittedAt;
++    people.set(submission.userId, person);
++  }
++  const players = [...people.values()].map((person) => ({
++    ...person, categories: STARPLAYER_CATEGORIES.filter((category) => person.categories.has(category.id)).map((category) => category.id),
++  })).sort((a, b) => b.categories.length - a.categories.length || b.submissions - a.submissions || a.displayName.localeCompare(b.displayName));
++  return {
++    totalSubmissions: submissions.length,
++    uniquePlayers: players.length,
++    completedTasks: players.reduce((sum, player) => sum + player.categories.length, 0),
++    categories: STARPLAYER_CATEGORIES.map((category) => ({
++      ...category,
++      submissions: submissions.filter((submission) => submission.category === category.id).length,
++      players: players.filter((player) => player.categories.includes(category.id)).length,
++    })),
++    players,
++    recent: [...submissions].sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)).slice(0, 50),
++  };
++}
+--- /dev/null
++++ b/lib/starplayer/sheets.ts
+@@ -0,0 +1,111 @@
++import { GoogleAuth } from "google-auth-library";
++import { STARPLAYER_SHEET_ID, categoryFor, type StarplayerSubmission } from "./core";
++
++export const SUBMISSION_HEADERS = [
++  "Submission ID", "Submitted At (UTC)", "Discord User ID", "Username", "Display Name",
++  "Task Category", "Submission Link", "Attachment Name", "Discord Submission URL",
++  "Discord Message ID", "Channel ID", "Server ID",
++];
++const CONFIG_HEADERS = ["Key", "Value"];
++
++type Values = { values?: unknown[][] };
++type Metadata = { sheets?: Array<{ properties?: { title?: string; sheetId?: number } }> };
++
++export function starplayerSheetId(): string {
++  const input = process.env.STARPLAYER_GOOGLE_SHEET_ID?.trim() || STARPLAYER_SHEET_ID;
++  const id = input.match(/\/spreadsheets\/d\/([\w-]+)/)?.[1] || input;
++  if (!/^[\w-]{20,}$/.test(id)) throw new Error("Invalid Starplayer Google Sheet ID.");
++  return id;
++}
++
++export class StarplayerSheetsStore {
++  private readonly auth: GoogleAuth;
++  private readonly sheetId: string;
++
++  constructor(sheetId = starplayerSheetId()) {
++    this.sheetId = sheetId;
++    const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim();
++    const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
++    if (!clientEmail || !privateKey) throw new Error("Set GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_PRIVATE_KEY.");
++    this.auth = new GoogleAuth({
++      credentials: { client_email: clientEmail, private_key: privateKey },
++      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
++    });
++  }
++
++  private async request<T>(path: string, method: "GET" | "POST" | "PUT", data?: unknown): Promise<T> {
++    const client = await this.auth.getClient();
++    const response = await client.request<T>({
++      url: `https://sheets.googleapis.com/v4/spreadsheets/${this.sheetId}${path}`, method, data,
++    });
++    return response.data;
++  }
++
++  private async values(range: string): Promise<unknown[][]> {
++    return (await this.request<Values>(`/values/${encodeURIComponent(range)}`, "GET")).values ?? [];
++  }
++
++  private async put(range: string, rows: unknown[][]): Promise<void> {
++    await this.request(`/values/${encodeURIComponent(range)}?valueInputOption=RAW`, "PUT", { range, majorDimension: "ROWS", values: rows });
++  }
++
++  private async append(range: string, rows: unknown[][]): Promise<void> {
++    await this.request(`/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, "POST", {
++      range, majorDimension: "ROWS", values: rows,
++    });
++  }
++
++  async setup(): Promise<void> {
++    const tabs = [["StarplayerSubmissions", SUBMISSION_HEADERS, "L"], ["StarplayerConfig", CONFIG_HEADERS, "B"]] as const;
++    const metadata = await this.request<Metadata>("?fields=sheets.properties", "GET");
++    const existing = new Set((metadata.sheets ?? []).map((sheet) => sheet.properties?.title));
++    const missing = tabs.filter(([name]) => !existing.has(name));
++    if (missing.length) await this.request(":batchUpdate", "POST", { requests: missing.map(([title]) => ({ addSheet: { properties: { title } } })) });
++    for (const [name, columns, last] of tabs) {
++      const saved = (await this.values(`${name}!A1:${last}1`))[0]?.map(String) ?? [];
++      if (saved.length && JSON.stringify(saved) !== JSON.stringify(columns)) {
++        throw new Error(`${name} has unexpected headers. Restore its headers before using Starplayer submissions.`);
++      }
++      if (!saved.length) {
++        if ((await this.values(`${name}!A2:A2`)).length) throw new Error(`${name} has data below a missing header.`);
++        await this.put(`${name}!A1:${last}1`, [columns]);
++      }
++    }
++  }
++
++  async readSubmissions(): Promise<StarplayerSubmission[]> {
++    const rows = await this.values("StarplayerSubmissions!A2:L");
++    return rows.flatMap((row) => {
++      const category = categoryFor(String(row[5] ?? ""));
++      if (!row[0] || !category) return [];
++      return [{
++        id: String(row[0]), submittedAt: String(row[1] ?? ""), userId: String(row[2] ?? ""),
++        username: String(row[3] ?? ""), displayName: String(row[4] ?? ""), category: category.id,
++        link: String(row[6] ?? ""), attachmentName: String(row[7] ?? ""),
++        messageUrl: String(row[8] ?? ""), messageId: String(row[9] ?? ""),
++        channelId: String(row[10] ?? ""), guildId: String(row[11] ?? ""),
++      } satisfies StarplayerSubmission];
++    });
++  }
++
++  async appendSubmission(submission: StarplayerSubmission): Promise<boolean> {
++    const ids = await this.values("StarplayerSubmissions!A2:A");
++    if (ids.some((row) => String(row[0] ?? "") === submission.id)) return false;
++    await this.append("StarplayerSubmissions!A:L", [[
++      submission.id, submission.submittedAt, submission.userId, submission.username,
++      submission.displayName, categoryFor(submission.category)!.label, submission.link,
++      submission.attachmentName, submission.messageUrl, submission.messageId,
++      submission.channelId, submission.guildId,
++    ]]);
++    return true;
++  }
++
++  async readMenuMessageId(): Promise<string | null> {
++    const row = (await this.values("StarplayerConfig!A2:B2"))[0];
++    return row?.[0] === "menuMessageId" && row[1] ? String(row[1]) : null;
++  }
++
++  async saveMenuMessageId(id: string): Promise<void> {
++    await this.put("StarplayerConfig!A2:B2", [["menuMessageId", id]]);
++  }
++}
+--- /dev/null
++++ b/lib/starplayer/interactions.ts
+@@ -0,0 +1,131 @@
++import { discordConfig } from "@/lib/config";
++import { deleteMessage, editOriginalInteraction } from "@/lib/discord/api";
++import { deferredResponse, interactionError, modalResponse, parseModalValues } from "@/lib/discord/interactions";
++import { STARPLAYER_CHANNEL_ID, categoryFor, validateSubmission, type StarplayerSubmission } from "@/lib/starplayer/core";
++import { StarplayerSheetsStore } from "@/lib/starplayer/sheets";
++import type { DiscordInteraction } from "@/lib/types";
++import { discordUser } from "@/lib/utils";
++
++export const STARPLAYER_MENU_ID = "starplayer:category:v1";
++export const STARPLAYER_MODAL_PREFIX = "starplayer:submit:v1:";
++const LINK_ID = "starplayer:link";
++const FILE_ID = "starplayer:file";
++
++type UploadedFile = { id: string; filename: string; url: string; size: number; content_type?: string };
++
++export function starplayerModal(categoryId: string): Record<string, unknown> {
++  const category = categoryFor(categoryId);
++  if (!category) throw new Error("Invalid Starplayer task category.");
++  return {
++    custom_id: `${STARPLAYER_MODAL_PREFIX}${category.id}`,
++    title: `${category.label} submission`,
++    components: [
++      { type: 18, label: "Submission Link (optional)", component: {
++        type: 4, custom_id: LINK_ID, style: 1, placeholder: "https://...", max_length: 1000, required: false,
++      } },
++      { type: 18, label: "Submission Attachment (optional)", component: {
++        type: 19, custom_id: FILE_ID, min_values: 0, max_values: 1, required: false,
++      } },
++    ],
++  };
++}
++
++function validChannel(interaction: DiscordInteraction): boolean {
++  const guildId = process.env.STARPLAYER_GUILD_ID?.trim() || "1293483684888055840";
++  return interaction.guild_id === guildId && interaction.channel_id === STARPLAYER_CHANNEL_ID;
++}
++
++export function handleStarplayerMenu(interaction: DiscordInteraction): Response {
++  if (!validChannel(interaction)) return interactionError("Use the Starplayer submission menu in its designated channel.");
++  const category = categoryFor(interaction.data?.values?.[0] ?? "");
++  if (!category) return interactionError("Choose a valid task category.");
++  return modalResponse(starplayerModal(category.id));
++}
++
++function selectedFile(interaction: DiscordInteraction): UploadedFile | null {
++  const id = parseModalValues(interaction.data?.components ?? [])[FILE_ID];
++  if (!id) return null;
++  const attachment = interaction.data?.resolved?.attachments?.[id];
++  if (!attachment || attachment.id !== id || !attachment.filename || !attachment.url) {
++    throw new Error("The uploaded file could not be read. Please submit it again.");
++  }
++  return attachment;
++}
++
++async function postSubmission(submission: StarplayerSubmission, file: UploadedFile | null): Promise<string> {
++  const category = categoryFor(submission.category)!;
++  const payload = {
++    embeds: [{ color: 0xDFF760, title: `${category.label} · Starplayer submission`,
++      description: `Submitted by <@${submission.userId}>`,
++      fields: [
++        ...(submission.link ? [{ name: "Submission link", value: submission.link }] : []),
++        ...(file ? [{ name: "Attachment", value: file.filename.slice(0, 250) }] : []),
++      ], footer: { text: `Submission ID: ${submission.id}` },
++    }], allowed_mentions: { parse: [] },
++  };
++  const form = new FormData();
++  form.append("payload_json", JSON.stringify(payload));
++  if (file) {
++    const url = new URL(file.url);
++    if (url.protocol !== "https:" || url.hostname !== "cdn.discordapp.com" || file.size > 25_000_000) {
++      throw new Error("The attachment could not be copied. Please upload a file under 25 MB.");
++    }
++    const source = await fetch(url, { cache: "no-store" });
++    if (!source.ok) throw new Error("The attachment expired before it could be saved. Please try again.");
++    const bytes = await source.arrayBuffer();
++    if (bytes.byteLength > 25_000_000) throw new Error("Please upload a file under 25 MB.");
++    form.append("files[0]", new Blob([bytes], { type: file.content_type || "application/octet-stream" }), file.filename);
++  }
++  const response = await fetch(`https://discord.com/api/v10/channels/${STARPLAYER_CHANNEL_ID}/messages`, {
++    method: "POST", headers: { authorization: `Bot ${discordConfig().botToken}` }, body: form,
++  });
++  if (!response.ok) throw new Error(`Discord could not save the submission (${response.status}).`);
++  const message = await response.json() as { id: string };
++  return message.id;
++}
++
++export function handleStarplayerSubmission(interaction: DiscordInteraction, background: (task: () => Promise<void>) => void): Response {
++  if (!validChannel(interaction)) return interactionError("Use the Starplayer submission menu in its designated channel.");
++  const category = categoryFor(interaction.data?.custom_id?.slice(STARPLAYER_MODAL_PREFIX.length) ?? "");
++  if (!category) return interactionError("Choose a valid task category.");
++  let file: UploadedFile | null;
++  let link: string;
++  try {
++    file = selectedFile(interaction);
++    link = validateSubmission(parseModalValues(interaction.data?.components ?? [])[LINK_ID] ?? "", file?.filename ?? "");
++  } catch (error) {
++    return interactionError(error instanceof Error ? error.message : "Invalid submission.");
++  }
++  const user = discordUser(interaction);
++  background(async () => {
++    const store = new StarplayerSheetsStore();
++    await store.setup();
++    const existing = (await store.readSubmissions()).find((item) => item.id === interaction.id);
++    if (existing) {
++      await editOriginalInteraction(interaction.application_id, interaction.token, { content: `Already recorded: ${existing.messageUrl}` });
++      return;
++    }
++    const record: StarplayerSubmission = {
++      id: interaction.id, submittedAt: new Date().toISOString(), userId: user.id,
++      username: user.username, displayName: user.displayName,
++      category: category.id, link, attachmentName: file?.filename ?? "", messageUrl: "", messageId: "",
++      channelId: STARPLAYER_CHANNEL_ID, guildId: interaction.guild_id!,
++    };
++    const messageId = await postSubmission(record, file);
++    record.messageId = messageId;
++    record.messageUrl = `https://discord.com/channels/${record.guildId}/${STARPLAYER_CHANNEL_ID}/${messageId}`;
++    try {
++      if (!await store.appendSubmission(record)) {
++        await deleteMessage(STARPLAYER_CHANNEL_ID, messageId);
++        throw new Error("This submission was already recorded.");
++      }
++    } catch (error) {
++      await deleteMessage(STARPLAYER_CHANNEL_ID, messageId).catch(() => {});
++      throw error;
++    }
++    await editOriginalInteraction(interaction.application_id, interaction.token, {
++      content: `${category.label} submitted. Your task is recorded: ${record.messageUrl}`,
++    });
++  });
++  return deferredResponse(true);
++}
+--- /dev/null
++++ b/tests/starplayer-http.test.ts
+@@ -0,0 +1,55 @@
++import { generateKeyPairSync, sign } from "node:crypto";
++import { describe, expect, it } from "vitest";
++import { STARPLAYER_CHANNEL_ID } from "@/lib/starplayer/core";
++import { STARPLAYER_MENU_ID, handleStarplayerSubmission } from "@/lib/starplayer/interactions";
++import type { DiscordInteraction } from "@/lib/types";
++
++const base: DiscordInteraction = {
++  id: "123", application_id: "321", token: "token", type: 3,
++  guild_id: "1293483684888055840", channel_id: STARPLAYER_CHANNEL_ID,
++  member: { user: { id: "99", username: "player" } },
++};
++
++describe("Starplayer HTTP interactions", () => {
++  it("routes a signed dropdown through the existing Creator endpoint without changing its other handlers", async () => {
++    const pair = generateKeyPairSync("ed25519");
++    const spki = pair.publicKey.export({ type: "spki", format: "der" });
++    process.env.DISCORD_PUBLIC_KEY = spki.subarray(spki.length - 32).toString("hex");
++    const body = JSON.stringify({ ...base, data: { custom_id: STARPLAYER_MENU_ID, values: ["engagement"] } });
++    const timestamp = "1788480000";
++    const response = await (await import("@/app/api/discord/interactions/route")).POST(new Request("https://example.com/api/discord/interactions", {
++      method: "POST", body,
++      headers: { "x-signature-ed25519": sign(null, Buffer.from(timestamp + body), pair.privateKey).toString("hex"),
++        "x-signature-timestamp": timestamp },
++    }));
++    expect(response.status).toBe(200);
++    const result = await response.json();
++    expect(result.type).toBe(9);
++    expect(result.data.custom_id).toBe("starplayer:submit:v1:engagement");
++    expect(result.data.components).toMatchObject([
++      { component: { type: 4, required: false } },
++      { component: { type: 19, min_values: 0, required: false } },
++    ]);
++  });
++
++  it("requires a link or an attachment before deferring a submission", async () => {
++    let invoked = false;
++    const response = handleStarplayerSubmission({ ...base, type: 5,
++      data: { custom_id: "starplayer:submit:v1:engagement", components: [] },
++    }, () => { invoked = true; });
++    expect((await response.json()).type).toBe(4);
++    expect(invoked).toBe(false);
++  });
++
++  it("accepts a file-only submission and defers sheet recording", async () => {
++    let invoked = false;
++    const response = handleStarplayerSubmission({ ...base, type: 5,
++      data: { custom_id: "starplayer:submit:v1:strategy-tips", components: [
++        { type: 18, component: { type: 19, custom_id: "starplayer:file", values: ["777"] } },
++      ], resolved: { attachments: { "777": { id: "777", filename: "task.png", size: 100,
++        url: "https://cdn.discordapp.com/ephemeral-attachments/777/task.png" } } } },
++    }, () => { invoked = true; });
++    expect((await response.json()).type).toBe(5);
++    expect(invoked).toBe(true);
++  });
++});

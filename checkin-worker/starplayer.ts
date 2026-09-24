@@ -1,11 +1,9 @@
 import {
-  ActionRowBuilder, AttachmentBuilder, Client, Events, FileUploadBuilder, LabelBuilder,
-  MessageFlags, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle,
-  type Interaction, type ModalSubmitInteraction, type StringSelectMenuInteraction, type TextChannel,
+  ActionRowBuilder, Client, Events, FileUploadBuilder, LabelBuilder,
+  ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, type TextChannel,
 } from "discord.js";
 import {
-  STARPLAYER_CATEGORIES, STARPLAYER_CHANNEL_ID, categoryFor, validateSubmission,
-  type StarplayerCategory, type StarplayerSubmission,
+  STARPLAYER_CATEGORIES, STARPLAYER_CHANNEL_ID, categoryFor, type StarplayerCategory,
 } from "../lib/starplayer/core";
 import { StarplayerSheetsStore } from "../lib/starplayer/sheets";
 
@@ -87,75 +85,4 @@ export function attachStarplayer(client: Client, guildId: string): void {
     setInterval(() => void ensureMenu(), 60_000);
   });
 
-  client.on(Events.InteractionCreate, (interaction) => {
-    if (interaction.isStringSelectMenu() && interaction.customId === MENU_ID) {
-      void handleSelection(interaction).catch((error) => handleFailure(interaction, error));
-    } else if (interaction.isModalSubmit() && interaction.customId.startsWith(MODAL_PREFIX)) {
-      void handleSubmission(interaction).catch((error) => handleFailure(interaction, error));
-    }
-  });
-
-  async function handleSelection(interaction: StringSelectMenuInteraction): Promise<void> {
-    if (interaction.guildId !== guildId || interaction.channelId !== STARPLAYER_CHANNEL_ID || !menuReady) {
-      await interaction.reply({ content: "Starplayer submissions are unavailable right now.", flags: MessageFlags.Ephemeral });
-      return;
-    }
-    const category = categoryFor(interaction.values[0]);
-    if (!category) throw new Error("Invalid Starplayer task category.");
-    await interaction.showModal(submissionModal(category.id));
-  }
-
-  async function handleSubmission(interaction: ModalSubmitInteraction): Promise<void> {
-    if (interaction.guildId !== guildId || interaction.channelId !== STARPLAYER_CHANNEL_ID || !menuReady) {
-      await interaction.reply({ content: "Starplayer submissions are unavailable right now.", flags: MessageFlags.Ephemeral });
-      return;
-    }
-    const category = categoryFor(interaction.customId.slice(MODAL_PREFIX.length));
-    if (!category) throw new Error("Invalid Starplayer task category.");
-    const file = interaction.fields.getUploadedFiles(FILE_ID)?.first();
-    const link = validateSubmission(interaction.fields.getTextInputValue(LINK_ID), file?.name ?? "");
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    const channel = await submissionChannel();
-    const message = await channel.send({
-      embeds: [{
-        color: 0xDFF760, title: `${category.label} · Starplayer submission`,
-        description: `Submitted by <@${interaction.user.id}>`,
-        fields: [
-          ...(link ? [{ name: "Submission link", value: link }] : []),
-          ...(file ? [{ name: "Attachment", value: file.name }] : []),
-        ],
-        footer: { text: `Submission ID: ${interaction.id}` },
-      }],
-      files: file ? [new AttachmentBuilder(file.url, { name: file.name })] : [],
-      allowedMentions: { parse: [] },
-    });
-    const record: StarplayerSubmission = {
-      id: interaction.id, submittedAt: interaction.createdAt.toISOString(),
-      userId: interaction.user.id, username: interaction.user.username,
-      displayName: interaction.member && "displayName" in interaction.member ? String(interaction.member.displayName) : interaction.user.globalName ?? interaction.user.username,
-      category: category.id, link, attachmentName: file?.name ?? "",
-      messageUrl: message.url, messageId: message.id,
-      channelId: STARPLAYER_CHANNEL_ID, guildId,
-    };
-    try {
-      await store.appendSubmission(record);
-    } catch (error) {
-      await message.delete().catch((deleteError) => console.error("Could not remove unrecorded Starplayer submission.", deleteError));
-      throw error;
-    }
-    await interaction.editReply({ content: `${category.label} submitted. Your task is recorded: ${message.url}` });
-  }
-}
-
-async function handleFailure(interaction: Interaction, error: unknown): Promise<void> {
-  console.error("Could not process Starplayer submission.", error);
-  if (!interaction.isRepliable()) return;
-  const message = error instanceof Error && /submission link|https:\/\//i.test(error.message)
-    ? error.message : "Could not record your submission. Please try again shortly.";
-  try {
-    if (interaction.deferred || interaction.replied) await interaction.editReply({ content: message });
-    else await interaction.reply({ content: message, flags: MessageFlags.Ephemeral });
-  } catch (replyError) {
-    console.error("Could not notify Starplayer about the submission error.", replyError);
-  }
 }
