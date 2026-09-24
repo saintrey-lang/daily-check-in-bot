@@ -44,7 +44,7 @@ export default function StarplayerDashboard() {
     return () => window.clearInterval(timer);
   }, [refresh]);
 
-  return <section className="starplayer" id="starplayer">
+  return <section className="starplayer">
     <div className="section-head starplayer-heading"><div>
       <span className="eyebrow">STARPLAYER TASKS</span>
       <h2>Submission tracker</h2>

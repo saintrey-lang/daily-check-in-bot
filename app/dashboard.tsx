@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { formatResetTime, type CheckinConfig, type CheckinWindow, type EmbedTemplate } from "@/lib/checkin/core";
 import StarplayerDashboard from "./starplayer-dashboard";
@@ -61,6 +62,7 @@ function EmbedEditor({ label, prefix, value, onChange, status, code, resetTime }
 }
 
 export default function Dashboard() {
+  const [tab, setTab] = useState<"checkin" | "starplayer">("checkin");
   const [status, setStatus] = useState<Status | null>(null);
   const [prompt, setPrompt] = useState<Editor | null>(null);
   const [success, setSuccess] = useState<Editor | null>(null);
@@ -92,6 +94,19 @@ export default function Dashboard() {
     const timer = window.setInterval(() => { void refresh().catch(() => {}); }, 15_000);
     return () => window.clearInterval(timer);
   }, [refresh]);
+
+  useEffect(() => {
+    const fromHash = () => setTab(window.location.hash === "#starplayer" ? "starplayer" : "checkin");
+    fromHash();
+    window.addEventListener("hashchange", fromHash);
+    return () => window.removeEventListener("hashchange", fromHash);
+  }, []);
+
+  function selectTab(next: "checkin" | "starplayer") {
+    setTab(next);
+    window.history.replaceState(null, "", next === "starplayer" ? "#starplayer" : "#daily-check-in");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setWorking(true); setError(""); setNotification("");
@@ -126,14 +141,21 @@ export default function Dashboard() {
   const phase = !status?.config.startedAt ? "DRAFT" : active ? status?.prompt ? "LIVE" : "WAITING FOR BOT" : "COMPLETE";
   const draftCode = codes[(status?.window?.day ?? 1) - 1] ?? status?.window?.code ?? "";
   return <div className="shell">
-    <aside className="sidebar"><div className="brand"><span className="brand-mark">✦</span><div><b>DAYMARK</b><small>CHECK-IN STUDIO</small></div></div>
-      <nav><a className="nav-active" href="#overview"><span>◫</span> Overview</a><a href="#messages"><span>✎</span> Embed messages</a><a href="#schedule"><span>◷</span> Codes & time</a><a href="#starplayer"><span>★</span> Starplayer</a>{status && <a href={`https://docs.google.com/spreadsheets/d/${status.config.sheetId}/edit`} target="_blank" rel="noreferrer"><span>▤</span> Check-in Sheet ↗</a>}</nav>
-      <div className="sidebar-bottom"><span className="bot-dot" /> Discord check-in bot</div>
-    </aside>
-    <main className="content" id="overview">
-      <header className="topbar"><span className="breadcrumb">EVENTS <span>/</span> DAILY CHECK-IN</span><span className="topbar-right">15-DAY CAMPAIGN <span className="avatar">GS</span></span></header>
+    <header className="topbar">
+      <div className="brand"><span className="brand-mark">✦</span><div><b>GOLDEN SPATULA</b><small>ENCHANTED WILDS</small></div></div>
+      <div className="dashboard-tabs" role="tablist" aria-label="Dashboard sections">
+        <button id="checkin-tab" type="button" role="tab" aria-controls="checkin-panel" aria-selected={tab === "checkin"} tabIndex={tab === "checkin" ? 0 : -1} onClick={() => selectTab("checkin")} onKeyDown={(event) => { if (event.key === "ArrowRight") { selectTab("starplayer"); document.getElementById("starplayer-tab")?.focus(); } }}>DAILY CHECK-IN</button>
+        <span className="tab-divider" aria-hidden="true">|</span>
+        <button id="starplayer-tab" type="button" role="tab" aria-controls="starplayer-panel" aria-selected={tab === "starplayer"} tabIndex={tab === "starplayer" ? 0 : -1} onClick={() => selectTab("starplayer")} onKeyDown={(event) => { if (event.key === "ArrowLeft") { selectTab("checkin"); document.getElementById("checkin-tab")?.focus(); } }}>STARPLAYER</button>
+      </div>
+      <span className="topbar-right">EVENT CONTROL CENTER <span className="avatar">GS</span></span>
+    </header>
+    <main className="content">
+      <div className="campaign-hero"><Image className="campaign-art" src="/enchanted-wilds-banner.jpg" alt="Golden Spatula Enchanted Wilds campaign artwork" fill priority sizes="100vw" /><span className="hero-fade" aria-hidden="true" /></div>
       <div className="content-inner">
-        <section className="intro"><span className="eyebrow">EVENT CONTROL CENTER</span><div className="intro-row"><div><h1>Daily Check-In <span>✦</span></h1><p>Shape the message. Set the code. Let the streak begin.</p></div><span className={`status-pill ${phase === "LIVE" ? "live" : ""}`}><span /> {phase}</span></div></section>
+        <section id="checkin-panel" role="tabpanel" aria-labelledby="checkin-tab" hidden={tab !== "checkin"}>
+        <nav className="section-nav" aria-label="Daily check-in sections"><a href="#overview">Overview</a><a href="#messages">Embed messages</a><a href="#schedule">Codes & time</a>{status && <a href={`https://docs.google.com/spreadsheets/d/${status.config.sheetId}/edit`} target="_blank" rel="noreferrer">Check-in Sheet ↗</a>}</nav>
+        <section className="intro" id="overview"><span className="eyebrow">EVENT CONTROL CENTER</span><div className="intro-row"><div><h1>Daily Check-In <span>✦</span></h1><p>Shape the message. Set the code. Let the streak begin.</p></div><span className={`status-pill ${phase === "LIVE" ? "live" : ""}`}><span /> {phase}</span></div></section>
         {notification && <div className="notice" role="status">{notification}</div>}
         {error && <div className="error banner" role="alert">{error}</div>}
         {!status || !prompt || !success ? <div className="loading">Loading your check-in workspace…</div> : <>
@@ -158,7 +180,8 @@ export default function Dashboard() {
             <div className="save-bar"><span>Changes to the current announcement sync when the bot is connected.</span><button className="primary" disabled={working}>{working ? "Saving…" : "Save changes ↗"}</button></div>
           </form>
         </>}
-        <StarplayerDashboard />
+        </section>
+        <section id="starplayer-panel" role="tabpanel" aria-labelledby="starplayer-tab" hidden={tab !== "starplayer"}><StarplayerDashboard /></section>
       </div>
     </main>
   </div>;

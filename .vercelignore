@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+.vercel
+.next
+node_modules
+AGENTS.md
+CLAUDE.md
