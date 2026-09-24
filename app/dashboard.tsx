@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { formatResetTime, type CheckinConfig, type CheckinWindow, type EmbedTemplate } from "@/lib/checkin/core";
+import StarplayerDashboard from "./starplayer-dashboard";
 
 type Status = {
   config: CheckinConfig; window: CheckinWindow | null;
@@ -126,7 +127,7 @@ export default function Dashboard() {
   const draftCode = codes[(status?.window?.day ?? 1) - 1] ?? status?.window?.code ?? "";
   return <div className="shell">
     <aside className="sidebar"><div className="brand"><span className="brand-mark">✦</span><div><b>DAYMARK</b><small>CHECK-IN STUDIO</small></div></div>
-      <nav><a className="nav-active" href="#overview"><span>◫</span> Overview</a><a href="#messages"><span>✎</span> Embed messages</a><a href="#schedule"><span>◷</span> Codes & time</a>{status && <a href={`https://docs.google.com/spreadsheets/d/${status.config.sheetId}/edit`} target="_blank" rel="noreferrer"><span>▤</span> Check-in Sheet ↗</a>}</nav>
+      <nav><a className="nav-active" href="#overview"><span>◫</span> Overview</a><a href="#messages"><span>✎</span> Embed messages</a><a href="#schedule"><span>◷</span> Codes & time</a><a href="#starplayer"><span>★</span> Starplayer</a>{status && <a href={`https://docs.google.com/spreadsheets/d/${status.config.sheetId}/edit`} target="_blank" rel="noreferrer"><span>▤</span> Check-in Sheet ↗</a>}</nav>
       <div className="sidebar-bottom"><span className="bot-dot" /> Discord check-in bot</div>
     </aside>
     <main className="content" id="overview">
@@ -157,6 +158,7 @@ export default function Dashboard() {
             <div className="save-bar"><span>Changes to the current announcement sync when the bot is connected.</span><button className="primary" disabled={working}>{working ? "Saving…" : "Save changes ↗"}</button></div>
           </form>
         </>}
+        <StarplayerDashboard />
       </div>
     </main>
   </div>;

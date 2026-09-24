@@ -2,6 +2,14 @@
 
 This project has a Vercel team-protected dashboard and a separate, continuously running Discord worker. It uses the **existing Discord bot**. Players type the day's code in the configured Discord channel; the worker sends a verified embed and appends one row per player/day to the Google Sheet configured through `CHECKIN_GOOGLE_SHEET_ID`.
 
+## Starplayer submissions
+
+- In channel `1552725214868275261`, the same Discord worker posts a category dropdown for **Strategy & Tips**, **Engagement**, and **Version Discussion**. Selecting one opens a modal with an optional HTTPS submission link and an optional file upload. At least one must be provided.
+- The bot posts the submitted entry back to the channel. This preserves uploaded files beyond the temporary modal upload, and the entry's Discord message becomes its attachment link. The menu is pinned when the bot has **Manage Messages** permission.
+- The dashboard's **Starplayer** section shows total submissions, unique players, category counts, and per-player task completion. A category counts as finished for a player after their first submission; additional submissions still increase the submission total. This is submission progress, not a review or approval status.
+- Entries go to the separate [Starplayer Google Sheet](https://docs.google.com/spreadsheets/d/1aYqwNCdicmFhsITN9pXQE7shDw8xDeVT-5RUkIL3QsI/edit). Share that Sheet with the same `GOOGLE_SERVICE_ACCOUNT_EMAIL` used by the existing dashboard as **Editor**. The bot creates `StarplayerSubmissions` and `StarplayerConfig` tabs and leaves other tabs alone. Set `STARPLAYER_GOOGLE_SHEET_ID` only if the Sheet changes.
+- Give the bot **View Channel**, **Send Messages**, **Embed Links**, **Attach Files**, and **Read Message History** in the submission channel. **Manage Messages** allows it to pin the dropdown.
+
 ## Dashboard
 
 - Edit the daily announcement and the verified reply: title, body, accent color, PNG/JPG/GIF/WebP image or PDF attachment up to 1 MB. Images show within the Discord embed; PDFs appear as a file below it. Files are stored in a `CheckinAssets` tab in the same Sheet.

@@ -3,10 +3,12 @@ import { AttachmentBuilder, Client, Events, GatewayIntentBits, type TextChannel 
 import { defaultConfig, promptEmbed, windowAt, type CheckinAsset, type CheckinConfig, type CheckinEmbed } from "../lib/checkin/core";
 import { processCheckin, ensureDailyPrompt } from "../lib/checkin/service";
 import { CheckinSheetsStore } from "../lib/checkin/sheets";
+import { attachStarplayer } from "./starplayer";
 
 const token = process.env.DISCORD_BOT_TOKEN?.trim();
 if (!token) throw new Error("Set DISCORD_BOT_TOKEN before starting the worker.");
-const store = new CheckinSheetsStore(defaultConfig(process.env).sheetId);
+const initialConfig = defaultConfig(process.env);
+const store = new CheckinSheetsStore(initialConfig.sheetId);
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
 });
@@ -114,6 +116,7 @@ client.once(Events.ClientReady, () => {
   setInterval(() => void tick(), 10_000);
 });
 client.on(Events.Error, (error) => console.error("Discord connection error.", error));
+attachStarplayer(client, initialConfig.guildId);
 
 await store.setup();
 await client.login(token);
