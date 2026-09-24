@@ -1,0 +1,119 @@
+import "dotenv/config";
+import { AttachmentBuilder, Client, Events, GatewayIntentBits, type TextChannel } from "discord.js";
+import { defaultConfig, promptEmbed, windowAt, type CheckinAsset, type CheckinConfig, type CheckinEmbed } from "../lib/checkin/core";
+import { processCheckin, ensureDailyPrompt } from "../lib/checkin/service";
+import { CheckinSheetsStore } from "../lib/checkin/sheets";
+
+const token = process.env.DISCORD_BOT_TOKEN?.trim();
+if (!token) throw new Error("Set DISCORD_BOT_TOKEN before starting the worker.");
+const store = new CheckinSheetsStore(defaultConfig(process.env).sheetId);
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+});
+const assetCache = new Map<string, CheckinAsset>();
+let handledPrompt = "";
+let promptBusy = false;
+let queue = Promise.resolve();
+
+async function assetFor(id: string | null): Promise<CheckinAsset | null> {
+  if (!id) return null;
+  const cached = assetCache.get(id);
+  if (cached) return cached;
+  const asset = await store.readAsset(id);
+  if (asset) assetCache.set(id, asset);
+  return asset;
+}
+
+async function getChannel(config: CheckinConfig): Promise<TextChannel> {
+  const channel = await client.channels.fetch(config.channelId);
+  if (!channel?.isTextBased() || !("guildId" in channel) || channel.guildId !== config.guildId || !("send" in channel)) {
+    throw new Error("The configured channel must be a text channel in the configured Discord server.");
+  }
+  return channel as TextChannel;
+}
+
+function payload(embed: CheckinEmbed, asset: CheckinAsset | null) {
+  return {
+    embeds: [asset?.mime.startsWith("image/") ? { ...embed, image: { url: `attachment://${asset.name}` } } : embed],
+    files: asset ? [new AttachmentBuilder(asset.bytes, { name: asset.name })] : [],
+    allowedMentions: { parse: [] as [] },
+  };
+}
+
+async function tick(): Promise<void> {
+  if (!client.isReady() || promptBusy) return;
+  promptBusy = true;
+  try {
+    const config = await store.readConfig();
+    const window = windowAt(new Date(), config);
+    if (!window || !config.eventId) return;
+    const key = `${config.eventId}:${window.day}:${config.revision}`;
+    if (key === handledPrompt) return;
+    const asset = await assetFor(config.prompt.assetId);
+    const channel = await getChannel(config);
+    await ensureDailyPrompt(
+      new Date(), config, store,
+      async () => {
+        const embed = promptEmbed(window, config, asset);
+        // Recover if Discord accepted the post just before a Sheet write or restart failed.
+        const recent = await channel.messages.fetch({ limit: 100 });
+        const previous = recent.find((message) =>
+          message.author.id === client.user?.id && message.embeds[0]?.footer?.text === embed.footer?.text,
+        );
+        if (previous) return previous.id;
+        return (await channel.send(payload(embed, asset))).id;
+      },
+      async (messageId) => {
+        const message = await channel.messages.fetch(messageId);
+        await message.edit({ ...payload(promptEmbed(window, config, asset), asset), attachments: [] });
+      },
+    );
+    handledPrompt = key;
+    console.info(`Daily check-in prompt ready: Day ${window.day}`);
+  } catch (error) {
+    console.error("Could not post or update the daily check-in prompt; will retry.", error);
+  } finally {
+    promptBusy = false;
+  }
+}
+
+client.on(Events.MessageCreate, (message) => {
+  if (message.author.bot) return;
+  // One worker and one queue prevent two rapid messages from recording two check-ins.
+  queue = queue.then(async () => {
+    try {
+      const config = await store.readConfig();
+      if (message.guildId !== config.guildId || message.channelId !== config.channelId) return;
+      const result = await processCheckin({
+        id: message.id, guildId: message.guildId, channelId: message.channelId,
+        userId: message.author.id, username: message.author.username,
+        displayName: message.member?.displayName ?? message.author.globalName ?? message.author.username,
+        content: message.content, createdAt: message.createdAt, isBot: false,
+      }, config, store);
+      if (result.embed) {
+        const asset = result.status === "checked-in" ? await assetFor(config.success.assetId) : null;
+        await message.reply({ ...payload(result.embed, asset), allowedMentions: { parse: [], repliedUser: false } });
+      }
+    } catch (error) {
+      console.error("Could not process check-in message.", error);
+      try {
+        await message.reply({
+          embeds: [{ color: 0xE35050, title: "Check-in could not be confirmed", description: "Please try again shortly. If you already checked in, the bot will tell you." }],
+          allowedMentions: { parse: [], repliedUser: false },
+        });
+      } catch (replyError) {
+        console.error("Could not deliver check-in error reply.", replyError);
+      }
+    }
+  });
+});
+
+client.once(Events.ClientReady, () => {
+  console.info(`Check-in bot connected as ${client.user?.tag}`);
+  void tick();
+  setInterval(() => void tick(), 10_000);
+});
+client.on(Events.Error, (error) => console.error("Discord connection error.", error));
+
+await store.setup();
+await client.login(token);
