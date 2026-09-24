@@ -6,7 +6,7 @@ describe("Discord dashboard access", () => {
     vi.stubEnv("DISCORD_CLIENT_ID", "1545258381936427039");
     vi.stubEnv("DISCORD_CLIENT_SECRET", "only-for-tests-abc123");
     vi.stubEnv("DISCORD_ALLOWED_ROLE_ID", "123456789012345678");
-    vi.stubEnv("CHECKIN_GUILD_ID", "1293668498450419712");
+    vi.stubEnv("CHECKIN_GUILD_ID", "1293483684888055840");
     vi.stubEnv("DASHBOARD_BASE_URL", "https://dashboard.example.com");
   });
   afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });

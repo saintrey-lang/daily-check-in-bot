@@ -1,10 +1,24 @@
 import { describe, expect, it, vi } from "vitest";
 import { ASSET_HEADERS, CHECKIN_HEADERS, CONFIG_HEADERS, PROMPT_HEADERS, CheckinSheetsStore, validateUpload } from "../lib/checkin/sheets";
+import { defaultConfig } from "../lib/checkin/core";
 
 process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL = "test@example.iam.gserviceaccount.com";
 process.env.GOOGLE_PRIVATE_KEY = "test-private-key";
 
 describe("check-in Sheet", () => {
+  it("uses the configured server when the Sheet has an older server ID", async () => {
+    const sheetId = "a".repeat(24);
+    const stale = defaultConfig({ CHECKIN_GOOGLE_SHEET_ID: sheetId, CHECKIN_GUILD_ID: "1293668498450419712" });
+    const store = new CheckinSheetsStore(sheetId);
+    Object.assign(store, { values: vi.fn(async () => [["settings", JSON.stringify(stale)]]) });
+    vi.stubEnv("CHECKIN_GUILD_ID", "1293483684888055840");
+    try {
+      expect((await store.readConfig()).guildId).toBe("1293483684888055840");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("does not rewrite existing tab data or formatting at startup", async () => {
     const store = new CheckinSheetsStore("test-spreadsheet");
     const metadata = { sheets: [

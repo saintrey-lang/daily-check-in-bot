@@ -39,7 +39,7 @@ export function defaultConfig(env: Record<string, string | undefined>): CheckinC
   const config: CheckinConfig = {
     eventId: null, startedAt: null, startDate: null,
     channelId: env.CHECKIN_CHANNEL_ID?.trim() || "1503972816079425706",
-    guildId: env.CHECKIN_GUILD_ID?.trim() || "1293668498450419712",
+    guildId: env.CHECKIN_GUILD_ID?.trim() || "1293483684888055840",
     sheetId, timeZone: env.CHECKIN_TIMEZONE?.trim() || "Asia/Manila",
     codes: Array.from({ length: EVENT_DAYS }, (_, i) => WEEKDAY_CODES[i % 7]),
     prompt: { title: "DAY {day} CHECK-IN", description: "Type today's code in this channel to check in. Your next day begins at 8:00 AM ({timezone}).", color: "#7759E8", assetId: null },

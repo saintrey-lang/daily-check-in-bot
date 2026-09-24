@@ -10,7 +10,7 @@ export function oauthConfig() {
   const clientId = process.env.DISCORD_CLIENT_ID?.trim();
   const clientSecret = process.env.DISCORD_CLIENT_SECRET?.trim();
   const roleId = process.env.DISCORD_ALLOWED_ROLE_ID?.trim();
-  const guildId = process.env.CHECKIN_GUILD_ID?.trim() || "1293668498450419712";
+  const guildId = process.env.CHECKIN_GUILD_ID?.trim() || "1293483684888055840";
   const baseInput = process.env.DASHBOARD_BASE_URL?.trim();
   if (!clientId || !clientSecret || !roleId || !baseInput) {
     throw new Error("Set DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, DISCORD_ALLOWED_ROLE_ID and DASHBOARD_BASE_URL.");

@@ -109,6 +109,7 @@ export class CheckinSheetsStore {
     if (!row?.[1]) return fallback;
     const parsed = JSON.parse(String(row[1])) as CheckinConfig;
     if (parsed.sheetId !== this.sheetId) throw new Error("The dashboard and worker use different Google Sheets.");
+    if (process.env.CHECKIN_GUILD_ID?.trim()) parsed.guildId = fallback.guildId;
     validateConfig(parsed);
     return parsed;
   }

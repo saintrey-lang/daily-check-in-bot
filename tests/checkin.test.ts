@@ -3,7 +3,7 @@ import { defaultConfig, promptEmbed, startEvent, windowAt, type CheckinConfig, t
 import { ensureDailyPrompt, processCheckin, type CheckinStore, type PromptRecord } from "../lib/checkin/service";
 
 const launched = startEvent(defaultConfig({ CHECKIN_GOOGLE_SHEET_ID: "abcdefghijklmnopqrstuvwxyz" }), new Date("2026-09-24T02:15:00Z"));
-const config: CheckinConfig = { ...launched, channelId: "1503972816079425706", guildId: "1293668498450419712" };
+const config: CheckinConfig = { ...launched, channelId: "1503972816079425706", guildId: "1293483684888055840" };
 
 function fakeStore() {
   const records: CheckinRecord[] = [];
