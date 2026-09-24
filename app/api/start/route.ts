@@ -3,7 +3,7 @@ import { startEvent, windowAt } from "@/lib/checkin/core";
 import { checkinStore } from "@/lib/store";
 
 export async function POST(request: Request) {
-  const denied = requireAdmin(request, true);
+  const denied = await requireAdmin(request, true);
   if (denied) return denied;
   try {
     const store = checkinStore();
