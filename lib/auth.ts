@@ -76,6 +76,13 @@ export function cookieHeader(name: string, value: string, maxAge: number, path =
   return `${name}=${value}; HttpOnly; SameSite=Lax; Path=${path}; Max-Age=${maxAge}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
 }
 
+export function redirectResponse(url: URL): Response {
+  return new Response(null, {
+    status: 303,
+    headers: { Location: url.toString(), "Cache-Control": "no-store" },
+  });
+}
+
 export async function hasAllowedRole(accessToken: string, userId: string, config = oauthConfig()): Promise<boolean> {
   try {
     const response = await fetch(`${DISCORD_API}/users/@me/guilds/${config.guildId}/member`, {

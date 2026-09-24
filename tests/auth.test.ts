@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createSession, decodeSession, hasAllowedRole, oauthConfig, requireAdmin, SESSION_COOKIE, stateMatches } from "../lib/auth";
+import { GET as beginDiscordLogin } from "../app/api/auth/discord/route";
+import { GET as finishDiscordLogin } from "../app/api/auth/discord/callback/route";
 
 describe("Discord dashboard access", () => {
   beforeEach(() => {
@@ -10,6 +12,19 @@ describe("Discord dashboard access", () => {
     vi.stubEnv("DASHBOARD_BASE_URL", "https://dashboard.example.com");
   });
   afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
+
+  it("sets OAuth state and clears it on an invalid callback without a redirect header error", async () => {
+    const login = await beginDiscordLogin(new Request("https://dashboard.example.com/api/auth/discord"));
+    expect(login.status).toBe(303);
+    expect(login.headers.get("location")).toContain("discord.com/oauth2/authorize");
+    expect(login.headers.get("set-cookie")).toContain("checkin_discord_state=");
+    expect(login.headers.get("cache-control")).toBe("no-store");
+
+    const invalidCallback = await finishDiscordLogin(new Request("https://dashboard.example.com/api/auth/discord/callback?state=invalid"));
+    expect(invalidCallback.status).toBe(303);
+    expect(invalidCallback.headers.get("location")).toBe("https://dashboard.example.com/login?error=state");
+    expect(invalidCallback.headers.get("set-cookie")).toContain("Max-Age=0");
+  });
 
   it("rejects a changed session, an expired session, and an unrelated OAuth state", () => {
     const now = Date.now();
