@@ -33,7 +33,8 @@ export type CheckinRecord = {
 export type CheckinAsset = { id: string; name: string; mime: string; bytes: Buffer };
 
 export function defaultConfig(env: Record<string, string | undefined>): CheckinConfig {
-  const sheetInput = env.CHECKIN_GOOGLE_SHEET_ID?.trim() || "13OEb5uguT-KPDvTwrnsRcv_WEhWf1ZeAsaF3-uDmYnA";
+  const sheetInput = env.CHECKIN_GOOGLE_SHEET_ID?.trim();
+  if (!sheetInput) throw new Error("Set CHECKIN_GOOGLE_SHEET_ID to the event's Google Sheet ID or URL.");
   const sheetId = sheetInput.match(/\/spreadsheets\/d\/([\w-]+)/)?.[1] || sheetInput;
   const config: CheckinConfig = {
     eventId: null, startedAt: null, startDate: null,

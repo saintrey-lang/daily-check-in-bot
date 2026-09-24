@@ -125,7 +125,7 @@ export default function Dashboard() {
   const phase = !status?.config.startedAt ? "DRAFT" : active ? status?.prompt ? "LIVE" : "WAITING FOR BOT" : "COMPLETE";
   return <div className="shell">
     <aside className="sidebar"><div className="brand"><span className="brand-mark">✦</span><div><b>DAYMARK</b><small>CHECK-IN STUDIO</small></div></div>
-      <nav><a className="nav-active" href="#overview"><span>◫</span> Overview</a><a href="#messages"><span>✎</span> Embed messages</a><a href="#schedule"><span>◷</span> Daily codes</a><a href="https://docs.google.com/spreadsheets/d/13OEb5uguT-KPDvTwrnsRcv_WEhWf1ZeAsaF3-uDmYnA/edit" target="_blank" rel="noreferrer"><span>▤</span> Check-in Sheet ↗</a></nav>
+      <nav><a className="nav-active" href="#overview"><span>◫</span> Overview</a><a href="#messages"><span>✎</span> Embed messages</a><a href="#schedule"><span>◷</span> Daily codes</a>{status && <a href={`https://docs.google.com/spreadsheets/d/${status.config.sheetId}/edit`} target="_blank" rel="noreferrer"><span>▤</span> Check-in Sheet ↗</a>}</nav>
       <div className="sidebar-bottom"><span className="bot-dot" /> Discord check-in bot<br /><button type="button" onClick={logout}>Sign out ↗</button></div>
     </aside>
     <main className="content" id="overview">
@@ -141,7 +141,7 @@ export default function Dashboard() {
             <div className="stat"><span className="eyebrow">CHECK-INS TODAY</span><b>{status.today}</b><p>{status.total} recorded for this run</p></div>
           </section>
           <section className="launch" id="schedule"><div><span className="eyebrow">EVENT SCHEDULE</span><h2>{active ? "Your check-in is running" : "Ready when you are"}</h2><p>{active ? status.prompt ? "The daily code is live in Discord." : "The event is open; waiting for the bot to post today's code." : "Press Start to post Day 1 with the MONDAY code. Each following day begins at 8:00 AM in the selected timezone."}</p>
-            <div className="details"><span>Discord channel <strong>#{status.config.channelId}</strong></span><span>Sheet <a href="https://docs.google.com/spreadsheets/d/13OEb5uguT-KPDvTwrnsRcv_WEhWf1ZeAsaF3-uDmYnA/edit" target="_blank" rel="noreferrer">Open tracking Sheet ↗</a></span></div></div>
+            <div className="details"><span>Discord channel <strong>#{status.config.channelId}</strong></span><span>Sheet <a href={`https://docs.google.com/spreadsheets/d/${status.config.sheetId}/edit`} target="_blank" rel="noreferrer">Open tracking Sheet ↗</a></span></div></div>
             {!active && <button type="button" className="primary start-button" disabled={working} onClick={start}>{working ? "Working…" : status.config.startedAt ? "Start a new run ↗" : "Start Day 1 ↗"}</button>}
           </section>
           <section className="section-head" id="messages"><div><span className="eyebrow">MESSAGE BUILDER</span><h2>Make every check-in feel like a win.</h2><p>Customize the daily announcement and the player's verified reply. Attach an image or PDF to either message.</p></div></section>
