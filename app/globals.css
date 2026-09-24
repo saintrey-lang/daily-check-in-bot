@@ -83,6 +83,10 @@ nav a span { color: #a7afad; width: 15px; text-align: center; font-size: 17px; f
 .schedule-card { margin-top: 17px; padding: 23px; display: grid; grid-template-columns: 1fr 1.3fr; gap: 40px; }
 .schedule-card p { color: #9ba9a3; font-size: 11px; line-height: 1.6; }
 .schedule-fields .field-label:last-child { margin-bottom: 0; }
+.schedule-time-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+.codes-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 12px; margin-top: 13px; }
+.code-field.current-code { color: #dff760; }
+.code-field.current-code input { border-color: #b5d251; }
 .save-bar { display: flex; align-items: center; justify-content: space-between; padding: 18px 0 0; gap: 20px; color: #929e98; font-size: 11px; }
 .save-bar .primary { background: #dff760; color: #1e290d; }
 .save-bar .primary:hover { background: #f0ff9f; }
@@ -100,4 +104,4 @@ nav a span { color: #a7afad; width: 15px; text-align: center; font-size: 17px; f
 .auth-card .error { margin-bottom: 10px; }
 @media (max-width: 1050px) { .sidebar { width: 72px; flex-basis: 72px; } .brand { margin-left: 2px; } .brand div, nav a:not(.nav-active), nav .nav-active { font-size: 0; } nav a span { font-size: 19px; } .sidebar-bottom { font-size: 0; } .content-inner { padding: 35px 25px 75px; } }
 @media (max-width: 770px) { .sidebar { display: none; } .topbar { padding: 0 22px; height: 58px; } .topbar-right { font-size: 0; } .content-inner { padding: 30px 18px 65px; } .stats-grid { grid-template-columns: 1fr 1fr; } .stats-grid .stat:last-child { grid-column: span 2; } .editors, .schedule-card { grid-template-columns: 1fr; } .launch { align-items: flex-start; flex-direction: column; } .schedule-card { gap: 15px; } }
-@media (max-width: 450px) { .intro-row { align-items: flex-start; flex-direction: column; } .stat { padding: 17px; min-height: 130px; } .stat b { font-size: 29px; } .stat b.code-stat { font-size: 23px; } .two-cols { grid-template-columns: 1fr; gap: 0; } .save-bar { align-items: stretch; flex-direction: column; } .save-bar button { width: 100%; } }
+@media (max-width: 450px) { .intro-row { align-items: flex-start; flex-direction: column; } .stat { padding: 17px; min-height: 130px; } .stat b { font-size: 29px; } .stat b.code-stat { font-size: 23px; } .two-cols, .schedule-time-fields { grid-template-columns: 1fr; gap: 0; } .codes-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .save-bar { align-items: stretch; flex-direction: column; } .save-bar button { width: 100%; } }

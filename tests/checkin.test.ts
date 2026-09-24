@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { defaultConfig, promptEmbed, startEvent, windowAt, type CheckinConfig, type CheckinRecord } from "../lib/checkin/core";
+import { defaultConfig, promptEmbed, startEvent, validateConfig, windowAt, withResetTime, type CheckinConfig, type CheckinRecord } from "../lib/checkin/core";
 import { ensureDailyPrompt, processCheckin, type CheckinStore, type PromptRecord } from "../lib/checkin/service";
 
 const launched = startEvent(defaultConfig({ CHECKIN_GOOGLE_SHEET_ID: "abcdefghijklmnopqrstuvwxyz" }), new Date("2026-09-24T02:15:00Z"));
@@ -35,6 +35,39 @@ describe("dashboard-controlled 15-day check-in", () => {
     expect(windowAt(new Date("2026-09-25T00:00:00Z"), config)?.day).toBe(2);
     expect(windowAt(new Date("2026-10-08T00:00:00Z"), config)?.day).toBe(15);
     expect(windowAt(new Date("2026-10-09T00:00:00Z"), config)).toBeNull();
+  });
+
+  it("accepts any Day 1 code and a chosen daily reset time", () => {
+    const draft = defaultConfig({ CHECKIN_GOOGLE_SHEET_ID: "abcdefghijklmnopqrstuvwxyz" });
+    draft.codes[0] = "LAUNCH";
+    draft.resetTime = "09:30";
+    const custom = startEvent(draft, new Date("2026-09-24T02:15:00Z"));
+    expect(windowAt(new Date("2026-09-25T01:29:59Z"), custom)).toMatchObject({ day: 1, code: "LAUNCH" });
+    expect(windowAt(new Date("2026-09-25T01:30:00Z"), custom)?.day).toBe(2);
+    expect(promptEmbed({ day: 1, date: "2026-09-24", code: "LAUNCH" }, custom).description).toContain("9:30 AM");
+    expect(() => validateConfig({ ...draft, resetTime: "25:00" })).toThrow("reset time");
+  });
+
+  it("applies a time change tomorrow without moving today's boundary or past check-ins", () => {
+    const changed = withResetTime(config, "09:00", new Date("2026-09-25T00:30:00Z"));
+    expect(changed.resetSchedule).toEqual([
+      { date: "2026-09-24", time: "08:00" }, { date: "2026-09-26", time: "09:00" },
+    ]);
+    expect(windowAt(new Date("2026-09-25T00:30:00Z"), changed)?.day).toBe(2);
+    expect(windowAt(new Date("2026-09-25T00:00:00Z"), changed)?.day).toBe(2);
+    expect(windowAt(new Date("2026-09-26T00:59:59Z"), changed)?.day).toBe(2);
+    expect(windowAt(new Date("2026-09-26T01:00:00Z"), changed)?.day).toBe(3);
+    expect(withResetTime(changed, "10:30", new Date("2026-09-25T01:00:00Z")).resetSchedule).toEqual([
+      { date: "2026-09-24", time: "08:00" }, { date: "2026-09-26", time: "10:30" },
+    ]);
+  });
+
+  it("keeps the chosen local reset hour across daylight saving time", () => {
+    const draft = defaultConfig({ CHECKIN_GOOGLE_SHEET_ID: "abcdefghijklmnopqrstuvwxyz", CHECKIN_TIMEZONE: "America/New_York" });
+    draft.resetTime = "09:15";
+    const custom = startEvent(draft, new Date("2026-03-07T16:00:00Z"));
+    expect(windowAt(new Date("2026-03-08T13:14:59Z"), custom)?.day).toBe(1);
+    expect(windowAt(new Date("2026-03-08T13:15:00Z"), custom)?.day).toBe(2);
   });
 
   it("ignores codes until the bot has posted the prompt, then accepts any letter case", async () => {

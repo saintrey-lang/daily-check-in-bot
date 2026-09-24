@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { requireSameOrigin } from "@/lib/request";
-import { validateConfig, windowAt, type EmbedTemplate } from "@/lib/checkin/core";
+import { validateConfig, windowAt, withResetTime, type EmbedTemplate } from "@/lib/checkin/core";
 import { validateUpload } from "@/lib/checkin/sheets";
 import { checkinStore } from "@/lib/store";
 
@@ -20,9 +20,13 @@ export async function POST(request: Request) {
     await store.setup();
     const current = await store.readConfig();
     if (string(form, "revision") !== current.revision) return Response.json({ error: "The dashboard changed elsewhere. Refresh and try again." }, { status: 409 });
+    const now = new Date();
     const timeZone = string(form, "timeZone");
-    if (windowAt(new Date(), current) && timeZone !== current.timeZone) throw new Error("The timezone cannot change while a check-in is running.");
-    const codes = string(form, "codes").split(/[\s,]+/).map((code) => code.toUpperCase()).filter(Boolean);
+    if (windowAt(now, current) && timeZone !== current.timeZone) throw new Error("The timezone cannot change while a check-in is running.");
+    const resetTime = string(form, "resetTime");
+    const submittedCodes = form.getAll("codes");
+    const codes = (submittedCodes.length === 1 ? String(submittedCodes[0]).split(/[\s,]+/).filter(Boolean) : submittedCodes.map(String))
+      .map((code) => code.trim().toUpperCase());
     const edits: Record<Field, EmbedTemplate> = {
       prompt: { title: string(form, "promptTitle"), description: string(form, "promptDescription"), color: string(form, "promptColor"), assetId: current.prompt.assetId },
       success: { title: string(form, "successTitle"), description: string(form, "successDescription"), color: string(form, "successColor"), assetId: current.success.assetId },
@@ -38,7 +42,7 @@ export async function POST(request: Request) {
         uploads.push({ target, name: file.name, mime: file.type, bytes });
       }
     }
-    const updated = { ...current, timeZone, codes, prompt: edits.prompt, success: edits.success, revision: randomUUID() };
+    const updated = { ...withResetTime(current, resetTime, now), timeZone, codes, prompt: edits.prompt, success: edits.success, revision: randomUUID() };
     validateConfig(updated);
     for (const file of uploads) {
       const asset = await store.saveAsset(file.name, file.mime, file.bytes);

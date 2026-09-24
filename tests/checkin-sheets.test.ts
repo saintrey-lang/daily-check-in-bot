@@ -19,6 +19,22 @@ describe("check-in Sheet", () => {
     }
   });
 
+  it("reads a saved event from before reset time was configurable", async () => {
+    const sheetId = "a".repeat(24);
+    const old = defaultConfig({ CHECKIN_GOOGLE_SHEET_ID: sheetId });
+    const config = { ...old, eventId: "old-event", startedAt: "2026-09-24T02:15:00Z", startDate: "2026-09-24" };
+    const stored = JSON.parse(JSON.stringify(config));
+    delete stored.resetTime;
+    delete stored.resetSchedule;
+    stored.prompt.description = "Type today's code in this channel to check in. Your next day begins at 8:00 AM ({timezone}).";
+    const store = new CheckinSheetsStore(sheetId);
+    Object.assign(store, { values: vi.fn(async () => [["settings", JSON.stringify(stored)]]) });
+    const loaded = await store.readConfig();
+    expect(loaded.resetTime).toBe("08:00");
+    expect(loaded.resetSchedule).toEqual([{ date: "2026-09-24", time: "08:00" }]);
+    expect(loaded.prompt.description).toContain("{resetTime}");
+  });
+
   it("does not rewrite existing tab data or formatting at startup", async () => {
     const store = new CheckinSheetsStore("test-spreadsheet");
     const metadata = { sheets: [

@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     }
     const config = startEvent(current, new Date());
     await store.saveConfig(config);
-    return Response.json({ ok: true, eventId: config.eventId, startDate: config.startDate });
+    return Response.json({ ok: true, eventId: config.eventId, startDate: config.startDate, code: config.codes[0] });
   } catch (error) {
     console.error("Could not start check-in event.", error);
     return Response.json({ error: error instanceof Error ? error.message : "Could not start event." }, { status: 400 });

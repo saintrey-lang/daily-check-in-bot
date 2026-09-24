@@ -1,5 +1,5 @@
 import {
-  milestoneFor, nextStreak, promptEmbed, successEmbed, windowAt,
+  formatResetTime, milestoneFor, nextCivilDate, nextStreak, promptEmbed, resetTimeForDate, successEmbed, windowAt,
   type CheckinConfig, type CheckinEmbed, type CheckinRecord, type CheckinWindow,
 } from "./core";
 
@@ -32,7 +32,7 @@ export async function processCheckin(
   if (previous.some((row) => row.discordId === message.userId && row.day === window.day)) {
     return {
       status: "duplicate",
-      embed: { color: 0x7759E8, title: "Already checked in today", description: `Your Day ${window.day} check-in is recorded. Come back after the next 8:00 AM reset!` },
+      embed: { color: 0x7759E8, title: "Already checked in today", description: `Your Day ${window.day} check-in is recorded. Come back after the next ${formatResetTime(resetTimeForDate(nextCivilDate(window.date), config))} reset!` },
     };
   }
   const streak = nextStreak(previous, message.userId, config.eventId, window.day);

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { GoogleAuth } from "google-auth-library";
-import { defaultConfig, validateConfig, type CheckinAsset, type CheckinConfig, type CheckinRecord, type CheckinWindow } from "./core";
+import { DEFAULT_PROMPT, DEFAULT_RESET_TIME, OLD_DEFAULT_PROMPT, defaultConfig, validateConfig, type CheckinAsset, type CheckinConfig, type CheckinRecord, type CheckinWindow } from "./core";
 import type { PromptRecord } from "./service";
 
 export const CHECKIN_HEADERS = [
@@ -110,6 +110,10 @@ export class CheckinSheetsStore {
     const parsed = JSON.parse(String(row[1])) as CheckinConfig;
     if (parsed.sheetId !== this.sheetId) throw new Error("The dashboard and worker use different Google Sheets.");
     if (process.env.CHECKIN_GUILD_ID?.trim()) parsed.guildId = fallback.guildId;
+    // Older events have an 8 AM reset and no schedule saved in their config.
+    parsed.resetTime ??= DEFAULT_RESET_TIME;
+    parsed.resetSchedule ??= parsed.startDate ? [{ date: parsed.startDate, time: parsed.resetTime }] : [];
+    if (parsed.prompt.description === OLD_DEFAULT_PROMPT) parsed.prompt.description = DEFAULT_PROMPT;
     validateConfig(parsed);
     return parsed;
   }

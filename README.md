@@ -5,9 +5,9 @@ This project has a Vercel team-protected dashboard and a separate, continuously 
 ## Dashboard
 
 - Edit the daily announcement and the verified reply: title, body, accent color, PNG/JPG/GIF/WebP image or PDF attachment up to 1 MB. Images show within the Discord embed; PDFs appear as a file below it. Files are stored in a `CheckinAssets` tab in the same Sheet.
-- Edit the 15 codes (Day 1 must be `MONDAY`) and timezone. Tokens such as `{day}`, `{code}`, `{daysLeft}`, `{streak}`, `{timezone}` are replaced when sent. The daily code is always shown as a separate field in the prompt.
-- Press **Start Day 1** after saving edits. Day 1 opens immediately; the worker posts its `MONDAY` prompt within about 10 seconds while online. Each later day starts at 8:00 AM in the selected timezone, regardless of what weekday you started. The event ends after 15 daily windows. The same dashboard can start a fresh run after the prior event ends.
-- Edits made during an event update the current day's announcement when the worker next syncs; future replies use the latest template.
+- Edit each of the 15 daily codes, the daily reset time, and the timezone before starting. The default Day 1 code is `MONDAY`, but you can change it. Tokens such as `{day}`, `{code}`, `{daysLeft}`, `{streak}`, `{resetTime}`, `{timezone}` are replaced when sent. The daily code is always shown as a separate field in the prompt.
+- Press **Start Day 1** after saving edits. Day 1 opens immediately; the worker posts the chosen Day 1 code within about 10 seconds while online. Each later day starts at the selected reset time in the selected timezone, regardless of what weekday you started. The event ends after 15 daily windows. The same dashboard can start a fresh run after the prior event ends.
+- Codes and reset time remain editable during a run. A changed code updates the current day's announcement when the worker syncs; a reset-time change takes effect on the next local calendar day and leaves earlier day boundaries intact. The timezone remains fixed until the run ends. Future replies use the latest template.
 - Day 4, 7 and 15 consecutive check-ins get milestone congratulations. A missed day resets the streak. Codes are case-insensitive and each player can check in only once per day.
 
 ## Setup
@@ -17,7 +17,7 @@ This project has a Vercel team-protected dashboard and a separate, continuously 
 3. Connect this repository to the `creator-checkin-bot` Vercel project. Keep **Vercel Authentication → Require Log In** enabled for the project's `.vercel.app` domains, and make dashboard operators members of the Vercel team. The dashboard itself has no separate login; its API routes rely on this project-wide protection. Do not disable it or use a shareable protection-bypass link as the dashboard URL.
 4. Set `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_PRIVATE_KEY`, and `CHECKIN_GOOGLE_SHEET_ID` in the Vercel project's Production environment. Redeploy, open the production URL as a team member, and save your desired messages. Keep the private key out of Git.
 5. Create **one persistent Node.js 24 service** from this same repository, with start command `npm run worker`. Set `DISCORD_BOT_TOKEN`, `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_PRIVATE_KEY`, `CHECKIN_GOOGLE_SHEET_ID`, `CHECKIN_CHANNEL_ID`, `CHECKIN_GUILD_ID`, and `CHECKIN_TIMEZONE` on the worker. The worker and dashboard must use the same Google Sheet. Do not run the worker in a Vercel Function; it needs a continuous Gateway connection.
-6. Wait for worker log `Check-in bot connected as …`. Press **Start Day 1** in the dashboard. Wait for `DAY 1 CHECK-IN` and `MONDAY` in Discord. Type `monday` as a player: expect `DAY 1 - CHECK-IN VERIFIED`, 14 days left, and a new `Checkins` row.
+6. Wait for worker log `Check-in bot connected as …`. Press **Start Day 1** in the dashboard. Wait for the Day 1 prompt and your selected code in Discord. Type that code as a player: expect `DAY 1 - CHECK-IN VERIFIED`, 14 days left, and a new `Checkins` row.
 
 The existing creator bot deployment can remain in place. Reuse its Discord token and Google service account if they have access to the requested channel and Sheet. Keep credentials out of Git.
 
