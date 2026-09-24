@@ -67,7 +67,7 @@ export default function StarplayerDashboard() {
           {summary.players.map((player) => <tr key={player.userId}><td><strong>{player.displayName || player.username}</strong><small>@{player.username}</small></td>
             {STARPLAYER_CATEGORIES.map((category) => <td key={category.id}><span className={`task-mark ${player.categories.includes(category.id) ? "done" : ""}`}>{player.categories.includes(category.id) ? "✓ Finished" : "—"}</span></td>)}
             <td>{player.submissions}</td></tr>)}
-        </tbody></table></div> : <p className="empty-state">No submissions yet. Once the bot is running, the category dropdown will appear in the submission channel.</p>}
+        </tbody></table></div> : <p className="empty-state">No submissions yet. Players can use the pinned category dropdown in the submission channel.</p>}
       </div>
       <div className="starplayer-panel"><div className="panel-head"><h3>Recent submissions</h3><span>Latest 50</span></div>
         {summary.recent.length ? <div className="table-scroll"><table><thead><tr><th>Submitted</th><th>Starplayer</th><th>Category</th><th>Submission</th></tr></thead><tbody>
