@@ -14,6 +14,7 @@ const client = new Client({
 });
 const assetCache = new Map<string, CheckinAsset>();
 let handledPrompt = "";
+let archivedPrompt = "";
 let promptBusy = false;
 let queue = Promise.resolve();
 
@@ -47,6 +48,20 @@ async function tick(): Promise<void> {
   promptBusy = true;
   try {
     const config = await store.readConfig();
+    if (config.supersededPromptId && archivedPrompt !== config.supersededPromptId) {
+      const channel = await getChannel(config);
+      try {
+        const previous = await channel.messages.fetch(config.supersededPromptId);
+        await previous.edit({ embeds: [{
+          color: 0x64748b, title: "Previous check-in closed",
+          description: "The check-in schedule was reset. Use the newest Day 1 announcement to check in when it appears.",
+        }], attachments: [], files: [] });
+      } catch (error) {
+        // A removed announcement needs no further action.
+        if (!(error instanceof Error && "code" in error && error.code === 10008)) throw error;
+      }
+      archivedPrompt = config.supersededPromptId;
+    }
     const window = windowAt(new Date(), config);
     if (!window || !config.eventId) return;
     const key = `${config.eventId}:${window.day}:${config.revision}`;

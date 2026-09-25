@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { defaultConfig, promptEmbed, startEvent, validateConfig, windowAt, withResetTime, type CheckinConfig, type CheckinRecord } from "../lib/checkin/core";
+import { defaultConfig, promptEmbed, resetEvent, startEvent, validateConfig, windowAt, withResetTime, type CheckinConfig, type CheckinRecord } from "../lib/checkin/core";
 import { ensureDailyPrompt, processCheckin, type CheckinStore, type PromptRecord } from "../lib/checkin/service";
 
 const launched = startEvent(defaultConfig({ CHECKIN_GOOGLE_SHEET_ID: "abcdefghijklmnopqrstuvwxyz" }), new Date("2026-09-24T02:15:00Z"));
@@ -35,6 +35,33 @@ describe("dashboard-controlled 15-day check-in", () => {
     expect(windowAt(new Date("2026-09-25T00:00:00Z"), config)?.day).toBe(2);
     expect(windowAt(new Date("2026-10-08T00:00:00Z"), config)?.day).toBe(15);
     expect(windowAt(new Date("2026-10-09T00:00:00Z"), config)).toBeNull();
+  });
+
+  it("resets a live Day 2 to Day 1 today, then starts Day 2 at the next reset", () => {
+    const now = new Date("2026-09-25T00:43:00Z");
+    expect(windowAt(now, config)?.day).toBe(2);
+    const restarted = resetEvent(config, now);
+    expect(restarted.eventId).not.toBe(config.eventId);
+    expect(windowAt(now, restarted)).toMatchObject({ day: 1, date: "2026-09-25", code: config.codes[0] });
+    expect(windowAt(new Date("2026-09-26T00:00:00Z"), restarted)?.day).toBe(2);
+    expect(restarted.resetSchedule).toEqual([{ date: "2026-09-25", time: "08:00" }]);
+  });
+
+  it("schedules Day 1 at the event's local reset time and rejects a past start", () => {
+    const now = new Date("2026-09-25T00:43:00Z");
+    const scheduled = resetEvent(config, now, "2026-09-27");
+    expect(scheduled.startedAt).toBe("2026-09-27T00:00:00.000Z");
+    expect(windowAt(new Date("2026-09-26T23:59:59Z"), scheduled)).toBeNull();
+    expect(windowAt(new Date("2026-09-27T00:00:00Z"), scheduled)?.day).toBe(1);
+    expect(() => resetEvent(config, now, "2026-09-25")).toThrow("future date");
+  });
+
+  it("starts Day 1 immediately even when the reset hour has not arrived", () => {
+    const now = new Date("2026-09-24T23:00:00Z"); // 7 AM Manila
+    const restarted = resetEvent(config, now);
+    expect(windowAt(now, restarted)?.day).toBe(1);
+    expect(windowAt(new Date("2026-09-25T00:00:00Z"), restarted)?.day).toBe(1);
+    expect(windowAt(new Date("2026-09-26T00:00:00Z"), restarted)?.day).toBe(2);
   });
 
   it("accepts any Day 1 code and a chosen daily reset time", () => {

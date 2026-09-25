@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { formatResetTime, type CheckinConfig, type CheckinWindow, type EmbedTemplate } from "@/lib/checkin/core";
+import { formatResetTime, localDateAt, type CheckinConfig, type CheckinWindow, type EmbedTemplate } from "@/lib/checkin/core";
 import StarplayerDashboard from "./starplayer-dashboard";
 
 type Status = {
@@ -69,6 +69,7 @@ export default function Dashboard() {
   const [timeZone, setTimeZone] = useState("");
   const [resetTime, setResetTime] = useState("08:00");
   const [codes, setCodes] = useState<string[]>([]);
+  const [scheduledDate, setScheduledDate] = useState("");
   const [notification, setNotification] = useState("");
   const [error, setError] = useState("");
   const [working, setWorking] = useState(false);
@@ -137,8 +138,29 @@ export default function Dashboard() {
     finally { setWorking(false); }
   }
 
+  async function resetDayOne(date?: string) {
+    if (!status) return;
+    if (status.total > 0 && !window.confirm(`Start a new run? The ${status.total} check-ins from this run will remain in the Sheet, but the dashboard and bot will track the new run.`)) return;
+    setWorking(true); setError(""); setNotification("");
+    try {
+      const response = await fetch("/api/reset", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revision: status.config.revision, ...(date ? { scheduledDate: date } : {}) }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not reset Day 1.");
+      setScheduledDate("");
+      await refresh(true);
+      setNotification(date
+        ? `Day 1 is scheduled for ${date} at ${formatResetTime(status.config.resetTime)} (${status.config.timeZone}). The bot will post its code when it starts.`
+        : `Day 1 is live for today. The bot will post the ${result.code} code shortly.`);
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Could not reset Day 1."); }
+    finally { setWorking(false); }
+  }
+
   const active = Boolean(status?.window);
-  const phase = !status?.config.startedAt ? "DRAFT" : active ? status?.prompt ? "LIVE" : "WAITING FOR BOT" : "COMPLETE";
+  const scheduled = Boolean(status?.config.startedAt && Date.parse(status.config.startedAt) > Date.now());
+  const phase = !status?.config.startedAt ? "DRAFT" : scheduled ? "SCHEDULED" : active ? status?.prompt ? "LIVE" : "WAITING FOR BOT" : "COMPLETE";
   const draftCode = codes[(status?.window?.day ?? 1) - 1] ?? status?.window?.code ?? "";
   return <div className="shell">
     <header className="topbar">
@@ -164,9 +186,19 @@ export default function Dashboard() {
             <div className="stat"><span className="eyebrow">TODAY'S CODE</span><b className="code-stat">{status.window?.code ?? status.config.codes[0]}</b><p>Accepted without case sensitivity</p></div>
             <div className="stat"><span className="eyebrow">CHECK-INS TODAY</span><b>{status.today}</b><p>{status.total} recorded for this run</p></div>
           </section>
-          <section className="launch"><div><span className="eyebrow">EVENT SCHEDULE</span><h2>{active ? "Your check-in is running" : "Ready when you are"}</h2><p>{active ? status.prompt ? "The daily code is live in Discord." : "The event is open; waiting for the bot to post today's code." : `Press Start to post Day 1 with ${status.config.codes[0]}. Each following day begins at ${formatResetTime(status.config.resetTime)} in ${status.config.timeZone}.`}</p>
+          <section className="launch"><div><span className="eyebrow">EVENT SCHEDULE</span><h2>{scheduled ? "Day 1 is scheduled" : active ? "Your check-in is running" : "Ready when you are"}</h2><p>{scheduled ? `Day 1 begins ${status.config.startDate} at ${formatResetTime(status.config.resetTime)} (${status.config.timeZone}).` : active ? status.prompt ? "The daily code is live in Discord." : "The event is open; waiting for the bot to post today's code." : `Press Start to post Day 1 with ${status.config.codes[0]}. Each following day begins at ${formatResetTime(status.config.resetTime)} in ${status.config.timeZone}.`}</p>
             <div className="details"><span><a href="#schedule">Edit codes & time ↗</a></span><span>Discord channel <strong>#{status.config.channelId}</strong></span><span>Sheet <a href={`https://docs.google.com/spreadsheets/d/${status.config.sheetId}/edit`} target="_blank" rel="noreferrer">Open tracking Sheet ↗</a></span></div></div>
-            {!active && <button type="button" className="primary start-button" disabled={working} onClick={start}>{working ? "Working…" : status.config.startedAt ? "Start a new run ↗" : "Start Day 1 ↗"}</button>}
+            {!active && !scheduled && <button type="button" className="primary start-button" disabled={working} onClick={start}>{working ? "Working…" : status.config.startedAt ? "Start a new run ↗" : "Start Day 1 ↗"}</button>}
+          </section>
+          <section className="day-one-controls" aria-label="Reset or schedule Day 1">
+            <div><span className="eyebrow">DAY 1 CONTROL</span><h3>Reset or schedule Day 1</h3><p>Starting a new run keeps earlier check-ins in the Sheet. The bot will close the current announcement and post the new Day 1 code when the run starts.</p></div>
+            <div className="day-one-actions">
+              <button type="button" className="primary start-button" disabled={working} onClick={() => void resetDayOne()}>{working ? "Working…" : "Reset to Day 1 now ↗"}</button>
+              <label className="field-label">Schedule Day 1 date · {status.config.timeZone}
+                <input type="date" value={scheduledDate} min={localDateAt(new Date(), status.config.timeZone)} onChange={(event) => setScheduledDate(event.target.value)} />
+              </label>
+              <button type="button" className="primary" disabled={working || !scheduledDate} onClick={() => void resetDayOne(scheduledDate)}>Schedule at {formatResetTime(status.config.resetTime)} ↗</button>
+            </div>
           </section>
           <section className="section-head" id="messages"><div><span className="eyebrow">MESSAGE BUILDER</span><h2>Make every check-in feel like a win.</h2><p>Customize the daily announcement and the player's verified reply. Attach an image or PDF to either message.</p></div></section>
           <form ref={form} onSubmit={save}>

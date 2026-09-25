@@ -21,6 +21,7 @@ export type CheckinConfig = {
   prompt: EmbedTemplate;
   success: EmbedTemplate;
   revision: string;
+  supersededPromptId?: string | null;
 };
 export type CheckinWindow = { day: number; date: string; code: string };
 export type CheckinEmbed = {
@@ -165,6 +166,42 @@ export function startEvent(config: CheckinConfig, now: Date): CheckinConfig {
     startDate,
     resetSchedule: [{ date: startDate, time: config.resetTime }],
     revision: now.toISOString(),
+  };
+}
+
+/** Convert a wall clock time in the event's timezone to an instant, including DST changes. */
+function instantAtLocal(date: string, time: string, timeZone: string): Date {
+  civilDay(date);
+  const [year, month, day] = date.split("-").map(Number);
+  const [hour, minute] = time.split(":").map(Number);
+  const target = Date.UTC(year, month - 1, day, hour, minute);
+  let timestamp = target;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const parts = localParts(new Date(timestamp), timeZone);
+    const [localYear, localMonth, localDay] = parts.date.split("-").map(Number);
+    const [localHour, localMinute] = parts.time.split(":").map(Number);
+    const difference = target - Date.UTC(localYear, localMonth - 1, localDay, localHour, localMinute);
+    if (!difference) return new Date(timestamp);
+    timestamp += difference;
+  }
+  throw new Error("The selected reset time does not exist on that date in this timezone.");
+}
+
+/** Begin a fresh run now, or schedule Day 1 for a local date at the daily reset time. */
+export function resetEvent(config: CheckinConfig, now: Date, scheduledDate?: string): CheckinConfig {
+  validateConfig(config);
+  const start = scheduledDate ? instantAtLocal(scheduledDate, config.resetTime, config.timeZone) : now;
+  if (scheduledDate && start.getTime() <= now.getTime()) throw new Error("Choose a future date, or use Reset to Day 1 now.");
+  const startDate = scheduledDate ?? localDateAt(now, config.timeZone);
+  const beforeReset = !scheduledDate && windowDateAt(now, { ...config, resetSchedule: [] }) !== startDate;
+  const resetSchedule = beforeReset
+    ? [{ date: startDate, time: "00:00" }, { date: nextCivilDate(startDate), time: config.resetTime }]
+    : [{ date: startDate, time: config.resetTime }];
+  return {
+    ...config,
+    eventId: `checkin-${now.toISOString().replace(/[-:.TZ]/g, "").slice(0, 14)}-${crypto.randomUUID().slice(0, 8)}`,
+    startedAt: start.toISOString(), startDate, resetSchedule,
+    revision: crypto.randomUUID(),
   };
 }
 

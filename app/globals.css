@@ -147,6 +147,16 @@ code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 .primary:disabled { opacity: .55; cursor: wait; }
 .start-button { border-color: #263c67; background: #172950; color: #e2fff9; }
 .start-button:hover:not(:disabled) { background: #2b4676; }
+.day-one-controls {
+  display: flex; justify-content: space-between; align-items: center; gap: 25px;
+  margin-top: 14px; padding: 20px 24px; border: 1px solid #68759d; border-radius: 12px;
+  background: #192447;
+}
+.day-one-controls h3 { margin: 5px 0; font-size: 18px; }
+.day-one-controls p { max-width: 470px; margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.day-one-actions { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+.day-one-actions .field-label { min-width: 195px; font-size: 11px; }
+.day-one-actions input { display: block; width: 100%; margin-top: 7px; padding: 11px; border: 1px solid #697aa5; border-radius: 8px; background: #0f1733; color: #f0f7ff; color-scheme: dark; }
 .section-head { margin: 46px 0 21px; scroll-margin-top: 110px; }
 .section-head h2 { margin: 9px 0 7px; font-size: clamp(23px, 2.6vw, 29px); }
 
@@ -250,6 +260,7 @@ code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
   .editors, .schedule-card { grid-template-columns: 1fr; }
   .schedule-card { gap: 15px; }
   .launch { flex-direction: column; align-items: flex-start; }
+  .day-one-controls { flex-direction: column; align-items: flex-start; }
 }
 @media (max-width: 480px) {
   .brand b { font-size: 12px; }
