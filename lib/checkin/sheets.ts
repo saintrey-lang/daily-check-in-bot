@@ -44,6 +44,9 @@ export function validateUpload(name: string, mime: string, bytes: Buffer): { nam
 
 export class CheckinSheetsStore {
   private readonly auth: GoogleAuth;
+  private configCache: { value: CheckinConfig; until: number } | null = null;
+  private readonly checkinsCache = new Map<string, { value: CheckinRecord[]; until: number }>();
+  private readonly promptCache = new Map<string, { value: PromptRecord | null; until: number }>();
   constructor(private readonly sheetId: string) {
     this.auth = new GoogleAuth({ credentials: credentials(), scopes: ["https://www.googleapis.com/auth/spreadsheets"] });
   }
@@ -104,9 +107,13 @@ export class CheckinSheetsStore {
   }
 
   async readConfig(): Promise<CheckinConfig> {
+    if (this.configCache && Date.now() < this.configCache.until) return this.configCache.value;
     const fallback = defaultConfig({ ...process.env, CHECKIN_GOOGLE_SHEET_ID: this.sheetId });
     const row = (await this.values("CheckinConfig!A2:B2"))[0];
-    if (!row?.[1]) return fallback;
+    if (!row?.[1]) {
+      this.configCache = { value: fallback, until: Date.now() + 15_000 };
+      return fallback;
+    }
     const parsed = JSON.parse(String(row[1])) as CheckinConfig;
     if (parsed.sheetId !== this.sheetId) throw new Error("The dashboard and worker use different Google Sheets.");
     if (process.env.CHECKIN_GUILD_ID?.trim()) parsed.guildId = fallback.guildId;
@@ -115,6 +122,7 @@ export class CheckinSheetsStore {
     parsed.resetSchedule ??= parsed.startDate ? [{ date: parsed.startDate, time: parsed.resetTime }] : [];
     if (parsed.prompt.description === OLD_DEFAULT_PROMPT) parsed.prompt.description = DEFAULT_PROMPT;
     validateConfig(parsed);
+    this.configCache = { value: parsed, until: Date.now() + 15_000 };
     return parsed;
   }
 
@@ -122,17 +130,22 @@ export class CheckinSheetsStore {
     if (config.sheetId !== this.sheetId) throw new Error("Cannot change the Google Sheet from the dashboard.");
     validateConfig(config);
     await this.put("CheckinConfig!A2:B2", [["settings", JSON.stringify(config)]]);
+    this.configCache = { value: config, until: Date.now() + 15_000 };
   }
 
   async readCheckins(eventId: string): Promise<CheckinRecord[]> {
+    const cached = this.checkinsCache.get(eventId);
+    if (cached && Date.now() < cached.until) return cached.value;
     const rows = await this.values("Checkins!A2:L");
-    return rows.filter((row) => String(row[0] ?? "") === eventId).map((row) => ({
+    const records = rows.filter((row) => String(row[0] ?? "") === eventId).map((row) => ({
       eventId: String(row[0]), day: Number(row[1]), date: String(row[2] ?? ""),
       checkedInAt: String(row[3] ?? ""), discordId: String(row[4] ?? ""),
       username: String(row[5] ?? ""), displayName: String(row[6] ?? ""), code: String(row[7] ?? ""),
       streak: Number(row[8]), milestone: Number(row[9]) || null,
       messageId: String(row[10] ?? ""), channelId: String(row[11] ?? ""),
     }));
+    this.checkinsCache.set(eventId, { value: records, until: Date.now() + 5_000 });
+    return records;
   }
 
   async appendCheckin(row: CheckinRecord): Promise<void> {
@@ -140,16 +153,24 @@ export class CheckinSheetsStore {
       row.eventId, row.day, row.date, row.checkedInAt, row.discordId, row.username,
       row.displayName, row.code, row.streak, row.milestone ?? "", row.messageId, row.channelId,
     ]]);
+    const cached = this.checkinsCache.get(row.eventId);
+    if (cached) cached.value.push(row);
   }
 
   async getPrompt(eventId: string, day: number): Promise<PromptRecord | null> {
+    const key = `${eventId}:${day}`;
+    const cached = this.promptCache.get(key);
+    if (cached && Date.now() < cached.until) return cached.value;
     const rows = await this.values("CheckinPrompts!A2:F");
     const found = rows.find((row) => String(row[0] ?? "") === eventId && Number(row[1]) === day);
-    return found ? { messageId: String(found[3]), revision: String(found[5] ?? "") } : null;
+    const prompt = found ? { messageId: String(found[3]), revision: String(found[5] ?? "") } : null;
+    this.promptCache.set(key, { value: prompt, until: Date.now() + (prompt ? 30_000 : 2_000) });
+    return prompt;
   }
 
   async appendPrompt(eventId: string, window: CheckinWindow, messageId: string, revision: string): Promise<void> {
     await this.append("CheckinPrompts!A:F", [[eventId, window.day, window.date, messageId, new Date().toISOString(), revision]]);
+    this.promptCache.set(`${eventId}:${window.day}`, { value: { messageId, revision }, until: Date.now() + 30_000 });
   }
 
   async setPromptRevision(eventId: string, day: number, revision: string): Promise<void> {
@@ -157,6 +178,10 @@ export class CheckinSheetsStore {
     const index = rows.findIndex((row) => String(row[0] ?? "") === eventId && Number(row[1]) === day);
     if (index < 0) throw new Error("Could not find the current daily prompt.");
     await this.put(`CheckinPrompts!F${index + 2}`, [[revision]]);
+    const key = `${eventId}:${day}`;
+    const cached = this.promptCache.get(key);
+    if (cached?.value) this.promptCache.set(key, { value: { ...cached.value, revision }, until: Date.now() + 30_000 });
+    else this.promptCache.delete(key);
   }
 
   async saveAsset(filename: string, mime: string, bytes: Buffer): Promise<{ id: string; name: string }> {
