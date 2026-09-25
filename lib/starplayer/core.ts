@@ -5,6 +5,7 @@ export const STARPLAYER_CATEGORIES = [
   { id: "strategy-tips", label: "Strategy & Tips" },
   { id: "engagement", label: "Engagement" },
   { id: "version-discussion", label: "Version Discussion" },
+  { id: "others", label: "Others" },
 ] as const;
 
 export type StarplayerCategory = (typeof STARPLAYER_CATEGORIES)[number]["id"];
@@ -12,6 +13,7 @@ export type StarplayerSubmission = {
   id: string;
   submittedAt: string;
   taskDate: string;
+  taskTitle: string;
   userId: string;
   username: string;
   displayName: string;
@@ -40,6 +42,13 @@ export function validateTaskDate(input: string, now: Date = new Date()): string 
   }
   if (date > todayInManila(now)) throw new Error("Task Date cannot be in the future (Manila time).");
   return date;
+}
+
+export function validateTaskTitle(input: string): string {
+  const title = input.trim();
+  if (!title) throw new Error("Enter a task title.");
+  if (title.length > 150) throw new Error("Task Title must be 150 characters or fewer.");
+  return title;
 }
 
 export function categoryFor(value: string): (typeof STARPLAYER_CATEGORIES)[number] | null {

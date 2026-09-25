@@ -70,8 +70,8 @@ export default function StarplayerDashboard() {
         </tbody></table></div> : <p className="empty-state">No submissions yet. Players can use the pinned category dropdown in the submission channel.</p>}
       </div>
       <div className="starplayer-panel"><div className="panel-head"><h3>Recent submissions</h3><span>Latest 50</span></div>
-        {summary.recent.length ? <div className="table-scroll"><table><thead><tr><th>Task Date</th><th>Submitted</th><th>Starplayer</th><th>Category</th><th>Submission</th></tr></thead><tbody>
-          {summary.recent.map((entry) => <tr key={entry.id}><td>{entry.taskDate || "—"}</td><td>{submittedAt(entry.submittedAt)}</td><td>{entry.displayName || entry.username}</td><td>{STARPLAYER_CATEGORIES.find((category) => category.id === entry.category)?.label}</td><td className="submission-links">
+        {summary.recent.length ? <div className="table-scroll"><table><thead><tr><th>Task Date</th><th>Task Title</th><th>Submitted</th><th>Starplayer</th><th>Category</th><th>Submission</th></tr></thead><tbody>
+          {summary.recent.map((entry) => <tr key={entry.id}><td>{entry.taskDate || "—"}</td><td>{entry.taskTitle || "—"}</td><td>{submittedAt(entry.submittedAt)}</td><td>{entry.displayName || entry.username}</td><td>{STARPLAYER_CATEGORIES.find((category) => category.id === entry.category)?.label}</td><td className="submission-links">
             {safeLink(entry.link) && <a href={safeLink(entry.link)!} target="_blank" rel="noreferrer">Open link ↗</a>}
             {entry.attachmentName && safeLink(entry.messageUrl) && <a href={safeLink(entry.messageUrl)!} target="_blank" rel="noreferrer">{entry.attachmentName} ↗</a>}
           </td></tr>)}

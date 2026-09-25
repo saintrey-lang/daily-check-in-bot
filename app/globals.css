@@ -215,6 +215,7 @@ code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 .starplayer-totals { margin-bottom: 17px; }
 .starplayer-totals .stat { min-height: 136px; }
 .starplayer-categories { margin-bottom: 17px; }
+.starplayer-categories { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .category-card { display: grid; gap: 10px; padding: 21px 23px; }
 .category-card strong { color: var(--mint); font: 600 28px "Space Grotesk", sans-serif; }
 .category-card strong small { color: #c1d2eb; font: 500 11px "DM Sans", sans-serif; }
@@ -256,7 +257,8 @@ code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
   .campaign-art { object-position: 61% 35%; }
   .content-inner { padding: 0 18px 65px; }
   .stats-grid, .starplayer-totals, .starplayer-categories { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .stats-grid .stat:last-child, .starplayer-totals .stat:last-child, .starplayer-categories .category-card:last-child { grid-column: span 2; }
+  .starplayer-categories { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stats-grid .stat:last-child, .starplayer-totals .stat:last-child { grid-column: span 2; }
   .editors, .schedule-card { grid-template-columns: 1fr; }
   .schedule-card { gap: 15px; }
   .launch { flex-direction: column; align-items: flex-start; }
@@ -271,7 +273,7 @@ code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
   .section-nav a { flex: 1 1 auto; text-align: center; padding: 8px; }
   .intro-row, .starplayer-heading { align-items: flex-start; flex-direction: column; }
   .stats-grid, .starplayer-totals, .starplayer-categories, .two-cols, .schedule-time-fields { grid-template-columns: 1fr; }
-  .stats-grid .stat:last-child, .starplayer-totals .stat:last-child, .starplayer-categories .category-card:last-child { grid-column: auto; }
+  .stats-grid .stat:last-child, .starplayer-totals .stat:last-child { grid-column: auto; }
   .stat { min-height: 120px; padding: 18px; }
   .stat b { font-size: 31px; }
   .stat b.code-stat { font-size: 24px; }

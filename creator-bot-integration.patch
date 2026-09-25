@@ -115,7 +115,7 @@
      permissions?: string;
 --- /dev/null
 +++ b/lib/starplayer/core.ts
-@@ -0,0 +1,95 @@
+@@ -0,0 +1,104 @@
 +export const STARPLAYER_CHANNEL_ID = "1552725214868275261";
 +export const STARPLAYER_SHEET_ID = "1aYqwNCdicmFhsITN9pXQE7shDw8xDeVT-5RUkIL3QsI";
 +
@@ -123,6 +123,7 @@
 +  { id: "strategy-tips", label: "Strategy & Tips" },
 +  { id: "engagement", label: "Engagement" },
 +  { id: "version-discussion", label: "Version Discussion" },
++  { id: "others", label: "Others" },
 +] as const;
 +
 +export type StarplayerCategory = (typeof STARPLAYER_CATEGORIES)[number]["id"];
@@ -130,6 +131,7 @@
 +  id: string;
 +  submittedAt: string;
 +  taskDate: string;
++  taskTitle: string;
 +  userId: string;
 +  username: string;
 +  displayName: string;
@@ -158,6 +160,13 @@
 +  }
 +  if (date > todayInManila(now)) throw new Error("Task Date cannot be in the future (Manila time).");
 +  return date;
++}
++
++export function validateTaskTitle(input: string): string {
++  const title = input.trim();
++  if (!title) throw new Error("Enter a task title.");
++  if (title.length > 150) throw new Error("Task Title must be 150 characters or fewer.");
++  return title;
 +}
 +
 +export function categoryFor(value: string): (typeof STARPLAYER_CATEGORIES)[number] | null {
@@ -213,7 +222,7 @@
 +}
 --- /dev/null
 +++ b/lib/starplayer/sheets.ts
-@@ -0,0 +1,117 @@
+@@ -0,0 +1,118 @@
 +import { GoogleAuth } from "google-auth-library";
 +import { googlePrivateKey } from "@/lib/config";
 +import { STARPLAYER_SHEET_ID, categoryFor, type StarplayerSubmission } from "./core";
@@ -221,7 +230,7 @@
 +export const SUBMISSION_HEADERS = [
 +  "Submission ID", "Submitted At (UTC)", "Discord User ID", "Username", "Display Name",
 +  "Task Category", "Submission Link", "Attachment Name", "Discord Submission URL",
-+  "Discord Message ID", "Channel ID", "Server ID", "Task Date",
++  "Discord Message ID", "Channel ID", "Server ID", "Task Date", "Task Title",
 +];
 +const CONFIG_HEADERS = ["Key", "Value"];
 +
@@ -273,16 +282,17 @@
 +  }
 +
 +  async setup(): Promise<void> {
-+    const tabs = [["StarplayerSubmissions", SUBMISSION_HEADERS, "M"], ["StarplayerConfig", CONFIG_HEADERS, "B"]] as const;
++    const tabs = [["StarplayerSubmissions", SUBMISSION_HEADERS, "N"], ["StarplayerConfig", CONFIG_HEADERS, "B"]] as const;
 +    const metadata = await this.request<Metadata>("?fields=sheets.properties", "GET");
 +    const existing = new Set((metadata.sheets ?? []).map((sheet) => sheet.properties?.title));
 +    const missing = tabs.filter(([name]) => !existing.has(name));
 +    if (missing.length) await this.request(":batchUpdate", "POST", { requests: missing.map(([title]) => ({ addSheet: { properties: { title } } })) });
 +    for (const [name, columns, last] of tabs) {
 +      const saved = (await this.values(`${name}!A1:${last}1`))[0]?.map(String) ?? [];
-+      if (name === "StarplayerSubmissions" && saved.length === SUBMISSION_HEADERS.length - 1 &&
-+        JSON.stringify(saved) === JSON.stringify(SUBMISSION_HEADERS.slice(0, -1))) {
-+        await this.put("StarplayerSubmissions!M1", [["Task Date"]]);
++      if (name === "StarplayerSubmissions" && (saved.length === 12 || saved.length === 13) &&
++        JSON.stringify(saved) === JSON.stringify(SUBMISSION_HEADERS.slice(0, saved.length))) {
++        const start = saved.length === 12 ? "M" : "N";
++        await this.put(`StarplayerSubmissions!${start}1:N1`, [SUBMISSION_HEADERS.slice(saved.length)]);
 +        continue;
 +      }
 +      if (saved.length && JSON.stringify(saved) !== JSON.stringify(columns)) {
@@ -296,12 +306,12 @@
 +  }
 +
 +  async readSubmissions(): Promise<StarplayerSubmission[]> {
-+    const rows = await this.values("StarplayerSubmissions!A2:M");
++    const rows = await this.values("StarplayerSubmissions!A2:N");
 +    return rows.flatMap((row) => {
 +      const category = categoryFor(String(row[5] ?? ""));
 +      if (!row[0] || !category) return [];
 +      return [{
-+        id: String(row[0]), submittedAt: String(row[1] ?? ""), taskDate: String(row[12] ?? ""), userId: String(row[2] ?? ""),
++        id: String(row[0]), submittedAt: String(row[1] ?? ""), taskDate: String(row[12] ?? ""), taskTitle: String(row[13] ?? ""), userId: String(row[2] ?? ""),
 +        username: String(row[3] ?? ""), displayName: String(row[4] ?? ""), category: category.id,
 +        link: String(row[6] ?? ""), attachmentName: String(row[7] ?? ""),
 +        messageUrl: String(row[8] ?? ""), messageId: String(row[9] ?? ""),
@@ -313,11 +323,11 @@
 +  async appendSubmission(submission: StarplayerSubmission): Promise<boolean> {
 +    const ids = await this.values("StarplayerSubmissions!A2:A");
 +    if (ids.some((row) => String(row[0] ?? "") === submission.id)) return false;
-+    await this.append("StarplayerSubmissions!A:M", [[
++    await this.append("StarplayerSubmissions!A:N", [[
 +      submission.id, submission.submittedAt, submission.userId, submission.username,
 +      submission.displayName, categoryFor(submission.category)!.label, submission.link,
 +      submission.attachmentName, submission.messageUrl, submission.messageId,
-+      submission.channelId, submission.guildId, submission.taskDate,
++      submission.channelId, submission.guildId, submission.taskDate, submission.taskTitle,
 +    ]]);
 +    return true;
 +  }
@@ -333,11 +343,11 @@
 +}
 --- /dev/null
 +++ b/lib/starplayer/interactions.ts
-@@ -0,0 +1,140 @@
+@@ -0,0 +1,148 @@
 +import { discordConfig } from "@/lib/config";
 +import { deleteMessage, editOriginalInteraction } from "@/lib/discord/api";
 +import { deferredResponse, interactionError, modalResponse, parseModalValues } from "@/lib/discord/interactions";
-+import { STARPLAYER_CHANNEL_ID, categoryFor, todayInManila, validateSubmission, validateTaskDate, type StarplayerSubmission } from "@/lib/starplayer/core";
++import { STARPLAYER_CHANNEL_ID, categoryFor, todayInManila, validateSubmission, validateTaskDate, validateTaskTitle, type StarplayerSubmission } from "@/lib/starplayer/core";
 +import { StarplayerSheetsStore } from "@/lib/starplayer/sheets";
 +import type { DiscordInteraction } from "@/lib/types";
 +import { discordUser } from "@/lib/utils";
@@ -347,6 +357,7 @@
 +const LINK_ID = "starplayer:link";
 +const FILE_ID = "starplayer:file";
 +const DATE_ID = "starplayer:task-date";
++const TITLE_ID = "starplayer:task-title";
 +
 +type UploadedFile = { id: string; filename: string; url: string; size: number; content_type?: string };
 +
@@ -357,6 +368,10 @@
 +    custom_id: `${STARPLAYER_MODAL_PREFIX}${category.id}`,
 +    title: `${category.label} submission`,
 +    components: [
++      { type: 18, label: "Task Title", component: {
++        type: 4, custom_id: TITLE_ID, style: 1, placeholder: "What task did you complete?",
++        max_length: 150, required: true,
++      } },
 +      { type: 18, label: "Task Date (YYYY-MM-DD)", component: {
 +        type: 4, custom_id: DATE_ID, style: 1, value: todayInManila(), placeholder: "YYYY-MM-DD",
 +        min_length: 10, max_length: 10, required: true,
@@ -399,6 +414,7 @@
 +    embeds: [{ color: 0xDFF760, title: `${category.label} · Starplayer submission`,
 +      description: `Submitted by <@${submission.userId}>`,
 +      fields: [
++        { name: "Task Title", value: submission.taskTitle },
 +        { name: "Task Date", value: submission.taskDate },
 +        ...(submission.link ? [{ name: "Submission link", value: submission.link }] : []),
 +        ...(file ? [{ name: "Attachment", value: file.filename.slice(0, 250) }] : []),
@@ -433,10 +449,12 @@
 +  let file: UploadedFile | null;
 +  let link: string;
 +  let taskDate: string;
++  let taskTitle: string;
 +  try {
 +    file = selectedFile(interaction);
 +    const values = parseModalValues(interaction.data?.components ?? []);
 +    taskDate = validateTaskDate(values[DATE_ID] || todayInManila());
++    taskTitle = validateTaskTitle(values[TITLE_ID] ?? "");
 +    link = validateSubmission(values[LINK_ID] ?? "", file?.filename ?? "");
 +  } catch (error) {
 +    return interactionError(error instanceof Error ? error.message : "Invalid submission.");
@@ -451,7 +469,7 @@
 +      return;
 +    }
 +    const record: StarplayerSubmission = {
-+      id: interaction.id, submittedAt: new Date().toISOString(), taskDate, userId: user.id,
++      id: interaction.id, submittedAt: new Date().toISOString(), taskDate, taskTitle, userId: user.id,
 +      username: user.username, displayName: user.displayName,
 +      category: category.id, link, attachmentName: file?.filename ?? "", messageUrl: "", messageId: "",
 +      channelId: STARPLAYER_CHANNEL_ID, guildId: interaction.guild_id!,
@@ -469,7 +487,7 @@
 +      throw error;
 +    }
 +    await editOriginalInteraction(interaction.application_id, interaction.token, {
-+      content: `${category.label} task for ${taskDate} submitted. Your task is recorded: ${record.messageUrl}`,
++      content: `${category.label} · ${taskTitle} (${taskDate}) submitted. Your task is recorded: ${record.messageUrl}`,
 +    });
 +  });
 +  return deferredResponse(true);
@@ -501,7 +519,7 @@
 +});
 --- /dev/null
 +++ b/tests/starplayer-http.test.ts
-@@ -0,0 +1,68 @@
+@@ -0,0 +1,88 @@
 +import { generateKeyPairSync, sign } from "node:crypto";
 +import { describe, expect, it } from "vitest";
 +import { STARPLAYER_CHANNEL_ID, todayInManila } from "@/lib/starplayer/core";
@@ -531,10 +549,16 @@
 +    expect(result.type).toBe(9);
 +    expect(result.data.custom_id).toBe("starplayer:submit:v1:engagement");
 +    expect(result.data.components).toMatchObject([
++      { label: "Task Title", component: { type: 4, required: true, max_length: 150 } },
 +      { label: "Task Date (YYYY-MM-DD)", component: { type: 4, required: true, value: todayInManila() } },
 +      { component: { type: 4, required: false } },
 +      { component: { type: 19, min_values: 0, required: false } },
 +    ]);
++  });
++
++  it("opens a submission form for Others", async () => {
++    const response = (await import("@/lib/starplayer/interactions")).starplayerModal("others");
++    expect(response.title).toBe("Others submission");
 +  });
 +
 +  it("rejects a future task date before accepting a submission", async () => {
@@ -552,9 +576,22 @@
 +  it("requires a link or an attachment before deferring a submission", async () => {
 +    let invoked = false;
 +    const response = handleStarplayerSubmission({ ...base, type: 5,
-+      data: { custom_id: "starplayer:submit:v1:engagement", components: [] },
++      data: { custom_id: "starplayer:submit:v1:engagement", components: [
++        { type: 18, component: { type: 4, custom_id: "starplayer:task-title", value: "Discussion post" } },
++      ] },
 +    }, () => { invoked = true; });
-+    expect((await response.json()).type).toBe(4);
++    expect((await response.json()).data.embeds[0].description).toContain("link or attach");
++    expect(invoked).toBe(false);
++  });
++
++  it("rejects a missing task title even when a link is present", async () => {
++    let invoked = false;
++    const response = handleStarplayerSubmission({ ...base, type: 5,
++      data: { custom_id: "starplayer:submit:v1:others", components: [
++        { type: 18, component: { type: 4, custom_id: "starplayer:link", value: "https://example.com/task" } },
++      ] },
++    }, () => { invoked = true; });
++    expect((await response.json()).data.embeds[0].description).toContain("task title");
 +    expect(invoked).toBe(false);
 +  });
 +
@@ -562,6 +599,7 @@
 +    let invoked = false;
 +    const response = handleStarplayerSubmission({ ...base, type: 5,
 +      data: { custom_id: "starplayer:submit:v1:strategy-tips", components: [
++        { type: 18, component: { type: 4, custom_id: "starplayer:task-title", value: "Teamfight guide" } },
 +        { type: 18, component: { type: 19, custom_id: "starplayer:file", values: ["777"] } },
 +      ], resolved: { attachments: { "777": { id: "777", filename: "task.png", size: 100,
 +        url: "https://cdn.discordapp.com/ephemeral-attachments/777/task.png" } } } },

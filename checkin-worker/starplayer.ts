@@ -12,7 +12,8 @@ const MODAL_PREFIX = "starplayer:submit:v1:";
 const LINK_ID = "starplayer:link";
 const FILE_ID = "starplayer:file";
 const DATE_ID = "starplayer:task-date";
-const MENU_TEXT = "**STARPLAYER TASK SUBMISSION**\nChoose a task category below. Enter the date you did the task (you can choose a previous date), then add a submission link, an attachment, or both. Each category counts as finished once you submit at least one task.";
+const TITLE_ID = "starplayer:task-title";
+const MENU_TEXT = "**STARPLAYER TASK SUBMISSION**\nChoose a task category below. Enter your task title and the date you did it (you can choose a previous date), then add a submission link, an attachment, or both. Each category counts as finished once you submit at least one task.";
 
 export function submissionMenu() {
   return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
@@ -29,6 +30,10 @@ export function submissionModal(category: StarplayerCategory) {
     .setCustomId(`${MODAL_PREFIX}${category}`)
     .setTitle(`${label} submission`)
     .addLabelComponents(
+      new LabelBuilder().setLabel("Task Title").setTextInputComponent(
+        new TextInputBuilder().setCustomId(TITLE_ID).setStyle(TextInputStyle.Short)
+          .setPlaceholder("What task did you complete?").setMaxLength(150).setRequired(true),
+      ),
       new LabelBuilder().setLabel("Task Date (YYYY-MM-DD)").setTextInputComponent(
         new TextInputBuilder().setCustomId(DATE_ID).setStyle(TextInputStyle.Short)
           .setValue(todayInManila()).setPlaceholder("YYYY-MM-DD").setMinLength(10).setMaxLength(10).setRequired(true),
