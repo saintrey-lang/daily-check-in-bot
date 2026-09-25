@@ -39,6 +39,68 @@
    if (customId === "creator_submit") return modalResponse(buildSubmissionModal());
    if (customId === "creator_submit_platform") {
      const platform = normalizePlatformValue(interaction.data?.values?.[0] ?? "other");
+--- /dev/null
++++ b/app/api/starplayer/health/route.ts
+@@ -0,0 +1,18 @@
++import { StarplayerSheetsStore } from "@/lib/starplayer/sheets";
++
++export async function GET() {
++  let stage = "credentials";
++  try {
++    const store = new StarplayerSheetsStore();
++    stage = "sheet access";
++    await store.readSubmissions();
++    return Response.json({ ok: true, service: "starplayer-submissions" }, {
++      headers: { "Cache-Control": "no-store" },
++    });
++  } catch (error) {
++    console.error("Starplayer readiness failed.", error);
++    return Response.json({ ok: false, service: "starplayer-submissions", stage }, {
++      status: 503, headers: { "Cache-Control": "no-store" },
++    });
++  }
++}
+--- a/lib/config.ts
++++ b/lib/config.ts
+@@ -1,4 +1,5 @@
+ import { projectConfig } from "@/lib/project-config";
++import { createPrivateKey } from "node:crypto";
+ 
+ function value(name: string): string {
+   return process.env[name]?.trim() ?? "";
+@@ -24,8 +25,31 @@
+   return {
+     sheetId: value("GOOGLE_SHEET_ID") || projectConfig.googleSheetId,
+     clientEmail: requiredEnv("GOOGLE_SERVICE_ACCOUNT_EMAIL"),
+-    privateKey: requiredEnv("GOOGLE_PRIVATE_KEY").replace(/\\n/g, "\n"),
++    privateKey: googlePrivateKey(),
+   };
++}
++
++export function googlePrivateKey(): string {
++  let key: unknown = requiredEnv("GOOGLE_PRIVATE_KEY");
++  try {
++    // The Vercel value can be a PEM, a JSON-escaped PEM, or the service account JSON.
++    for (let i = 0; i < 2 && typeof key === "string"; i++) {
++      const input = key.trim();
++      if (input.startsWith("{")) key = JSON.parse(input);
++      else if (input.startsWith('"') && input.endsWith('"')) {
++        try { key = JSON.parse(input); }
++        catch { key = input.slice(1, -1); }
++      } else if (input.startsWith("'") && input.endsWith("'")) key = input.slice(1, -1);
++      else break;
++    }
++    if (key && typeof key === "object") key = (key as { private_key?: unknown }).private_key;
++    if (typeof key !== "string") throw new Error("Missing private_key");
++    const pem = key.trim().replace(/\\n/g, "\n");
++    createPrivateKey(pem);
++    return pem;
++  } catch {
++    throw new Error("GOOGLE_PRIVATE_KEY is not a valid service account private_key. Copy the complete private_key from the service account JSON.");
++  }
+ }
+ 
+ export function youtubeConfig() {
 --- a/lib/types.ts
 +++ b/lib/types.ts
 @@ -69,6 +69,9 @@
@@ -151,8 +213,9 @@
 +}
 --- /dev/null
 +++ b/lib/starplayer/sheets.ts
-@@ -0,0 +1,116 @@
+@@ -0,0 +1,117 @@
 +import { GoogleAuth } from "google-auth-library";
++import { googlePrivateKey } from "@/lib/config";
 +import { STARPLAYER_SHEET_ID, categoryFor, type StarplayerSubmission } from "./core";
 +
 +export const SUBMISSION_HEADERS = [
@@ -179,8 +242,8 @@
 +  constructor(sheetId = starplayerSheetId()) {
 +    this.sheetId = sheetId;
 +    const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim();
-+    const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
-+    if (!clientEmail || !privateKey) throw new Error("Set GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_PRIVATE_KEY.");
++    if (!clientEmail) throw new Error("Set GOOGLE_SERVICE_ACCOUNT_EMAIL.");
++    const privateKey = googlePrivateKey();
 +    this.auth = new GoogleAuth({
 +      credentials: { client_email: clientEmail, private_key: privateKey },
 +      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
@@ -411,6 +474,31 @@
 +  });
 +  return deferredResponse(true);
 +}
+--- /dev/null
++++ b/tests/google-key.test.ts
+@@ -0,0 +1,22 @@
++import { generateKeyPairSync } from "node:crypto";
++import { afterEach, describe, expect, it } from "vitest";
++import { googlePrivateKey } from "@/lib/config";
++
++const pem = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString().trim();
++const previous = process.env.GOOGLE_PRIVATE_KEY;
++
++afterEach(() => { process.env.GOOGLE_PRIVATE_KEY = previous; });
++
++describe("service account key formats", () => {
++  it.each([pem, pem.replace(/\n/g, "\\n"), JSON.stringify(pem), JSON.stringify({ private_key: pem })])(
++    "accepts a complete private key", (input) => {
++      process.env.GOOGLE_PRIVATE_KEY = input;
++      expect(googlePrivateKey()).toBe(pem);
++    },
++  );
++
++  it("rejects an incomplete key with a useful error", () => {
++    process.env.GOOGLE_PRIVATE_KEY = "-----BEGIN PRIVATE KEY-----\\ncut off";
++    expect(() => googlePrivateKey()).toThrow("Copy the complete private_key");
++  });
++});
 --- /dev/null
 +++ b/tests/starplayer-http.test.ts
 @@ -0,0 +1,68 @@
