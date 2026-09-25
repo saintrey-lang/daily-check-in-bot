@@ -92,7 +92,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     void refresh().catch((caught) => setError(caught instanceof Error ? caught.message : "Could not load dashboard."));
-    const timer = window.setInterval(() => { void refresh().catch(() => {}); }, 15_000);
+    const timer = window.setInterval(() => { void refresh().catch(() => {}); }, 60_000);
     return () => window.clearInterval(timer);
   }, [refresh]);
 
