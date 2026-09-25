@@ -51,6 +51,23 @@ describe("check-in Sheet", () => {
     expect(request.mock.calls.every(([, method]) => method === "GET")).toBe(true);
   });
 
+  it("keeps a just-written check-in visible in the short read cache", async () => {
+    const store = new CheckinSheetsStore("test-spreadsheet");
+    const values = vi.fn(async () => [] as unknown[][]);
+    const append = vi.fn(async () => {});
+    Object.assign(store, { values, append });
+    expect(await store.readCheckins("event-one")).toEqual([]);
+    const record = {
+      eventId: "event-one", day: 1, date: "2026-09-25", checkedInAt: "2026-09-25T11:00:00Z",
+      discordId: "123", username: "player", displayName: "Player", code: "FRIDAY", streak: 1,
+      milestone: null, messageId: "456", channelId: "789",
+    };
+    await store.appendCheckin(record);
+    expect(await store.readCheckins("event-one")).toEqual([record]);
+    expect(values).toHaveBeenCalledOnce();
+    expect(append).toHaveBeenCalledOnce();
+  });
+
   it("rejects oversized and disguised attachments", () => {
     expect(() => validateUpload("huge.png", "image/png", Buffer.alloc(1024 * 1024 + 1))).toThrow("1 MB");
     expect(() => validateUpload("fake.png", "image/png", Buffer.from("not an image"))).toThrow("does not match");
