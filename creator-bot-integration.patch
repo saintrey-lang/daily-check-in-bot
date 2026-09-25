@@ -19,7 +19,7 @@
 +          await task();
 +        } catch (error) {
 +          console.error("Starplayer submission failed.", error);
-+          const content = error instanceof Error && /attachment|file under|expired/i.test(error.message)
++          const content = error instanceof Error && /attachment|file under|expired|direct message|allow DMs/i.test(error.message)
 +            ? error.message : "Could not record your submission. Please try again shortly.";
 +          await editOriginalInteraction(interaction.application_id, interaction.token, { content }).catch((replyError) => {
 +            console.error("Could not deliver the Starplayer error response.", replyError);
@@ -39,6 +39,39 @@
    if (customId === "creator_submit") return modalResponse(buildSubmissionModal());
    if (customId === "creator_submit_platform") {
      const platform = normalizePlatformValue(interaction.data?.values?.[0] ?? "other");
+--- /dev/null
++++ b/app/api/starplayer/attachments/[id]/route.ts
+@@ -0,0 +1,30 @@
++import { getMessage } from "@/lib/discord/api";
++import { StarplayerSheetsStore } from "@/lib/starplayer/sheets";
++
++export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
++  const { id } = await context.params;
++  if (!/^\d{17,20}$/.test(id)) return new Response("Not found", { status: 404 });
++  try {
++    const submission = (await new StarplayerSheetsStore().readSubmissions()).find((item) => item.id === id);
++    if (!submission?.attachmentName || !submission.messageUrl.endsWith(`/api/starplayer/attachments/${id}`) ||
++      !/^\d{17,20}$/.test(submission.channelId) || !/^\d{17,20}$/.test(submission.messageId)) {
++      return new Response("Not found", { status: 404 });
++    }
++    const message = await getMessage(submission.channelId, submission.messageId);
++    if (message.id !== submission.messageId || message.channel_id !== submission.channelId) {
++      throw new Error("Discord returned an unexpected submission message.");
++    }
++    const attachment = message.attachments.find((item) => item.url && item.id);
++    if (!attachment) return new Response("Attachment unavailable", { status: 404 });
++    const url = new URL(attachment.url);
++    if (url.protocol !== "https:" || url.hostname !== "cdn.discordapp.com") {
++      throw new Error("Discord returned an unexpected attachment URL.");
++    }
++    return new Response(null, { status: 302, headers: {
++      Location: url.toString(), "Cache-Control": "private, no-store",
++    } });
++  } catch (error) {
++    console.error("Could not open Starplayer attachment.", error);
++    return new Response("Attachment unavailable", { status: 503 });
++  }
++}
 --- /dev/null
 +++ b/app/api/starplayer/health/route.ts
 @@ -0,0 +1,28 @@
@@ -111,18 +144,44 @@
  }
  
  export function youtubeConfig() {
---- a/lib/types.ts
-+++ b/lib/types.ts
-@@ -69,6 +69,9 @@
-     values?: string[];
-     options?: Array<{ name: string; type: number; value: string | number | boolean }>;
-     components?: unknown[];
-+    resolved?: { attachments?: Record<string, {
-+      id: string; filename: string; url: string; size: number; content_type?: string;
-+    }> };
-   };
-   member?: {
-     permissions?: string;
+--- a/lib/discord/api.ts
++++ b/lib/discord/api.ts
+@@ -50,6 +50,10 @@
+   return discordRequest(`/channels/${channelId}/messages/${messageId}`, { method: "DELETE" });
+ }
+ 
++export function getMessage(channelId: string, messageId: string): Promise<DiscordMessage & { attachments: Array<{ id: string; url: string }> }> {
++  return discordRequest(`/channels/${channelId}/messages/${messageId}`, { method: "GET" });
++}
++
+ export function editOriginalInteraction(
+   applicationId: string,
+   interactionToken: string,
+@@ -61,12 +65,22 @@
+   }, false);
+ }
+ 
+-export async function sendDirectMessage(userId: string, payload: DiscordMessagePayload): Promise<void> {
++export function deleteOriginalInteraction(applicationId: string, interactionToken: string): Promise<void> {
++  return discordRequest(`/webhooks/${applicationId}/${interactionToken}/messages/@original`, {
++    method: "DELETE",
++  }, false);
++}
++
++export async function openDirectMessage(userId: string): Promise<string> {
+   const channel = await discordRequest<{ id: string }>("/users/@me/channels", {
+     method: "POST",
+     body: JSON.stringify({ recipient_id: userId }),
+   });
+-  await sendMessage(channel.id, payload);
++  return channel.id;
++}
++
++export async function sendDirectMessage(userId: string, payload: DiscordMessagePayload): Promise<void> {
++  await sendMessage(await openDirectMessage(userId), payload);
+ }
+ 
+ export function registerApplicationCommands(commands: unknown[]): Promise<unknown> {
 --- /dev/null
 +++ b/lib/starplayer/core.ts
 @@ -0,0 +1,104 @@
@@ -229,6 +288,197 @@
 +    players,
 +    recent: [...submissions].sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)).slice(0, 50),
 +  };
++}
+--- /dev/null
++++ b/lib/starplayer/interactions.ts
+@@ -0,0 +1,188 @@
++import { discordConfig } from "@/lib/config";
++import { deleteMessage, deleteOriginalInteraction, editMessage, editOriginalInteraction, openDirectMessage } from "@/lib/discord/api";
++import { deferredResponse, interactionError, modalResponse, parseModalValues } from "@/lib/discord/interactions";
++import { STARPLAYER_CHANNEL_ID, categoryFor, todayInManila, validateSubmission, validateTaskDate, validateTaskTitle, type StarplayerSubmission } from "@/lib/starplayer/core";
++import { StarplayerSheetsStore } from "@/lib/starplayer/sheets";
++import type { DiscordInteraction } from "@/lib/types";
++import { discordUser } from "@/lib/utils";
++
++export const STARPLAYER_MENU_ID = "starplayer:category:v1";
++export const STARPLAYER_MODAL_PREFIX = "starplayer:submit:v1:";
++const LINK_ID = "starplayer:link";
++const FILE_ID = "starplayer:file";
++const DATE_ID = "starplayer:task-date";
++const TITLE_ID = "starplayer:task-title";
++
++type UploadedFile = { id: string; filename: string; url: string; size: number; content_type?: string };
++
++export function starplayerModal(categoryId: string): Record<string, unknown> {
++  const category = categoryFor(categoryId);
++  if (!category) throw new Error("Invalid Starplayer task category.");
++  return {
++    custom_id: `${STARPLAYER_MODAL_PREFIX}${category.id}`,
++    title: `${category.label} submission`,
++    components: [
++      { type: 18, label: "Task Title", component: {
++        type: 4, custom_id: TITLE_ID, style: 1, placeholder: "What task did you complete?",
++        max_length: 150, required: true,
++      } },
++      { type: 18, label: "Task Date (YYYY-MM-DD)", component: {
++        type: 4, custom_id: DATE_ID, style: 1, value: todayInManila(), placeholder: "YYYY-MM-DD",
++        min_length: 10, max_length: 10, required: true,
++      } },
++      { type: 18, label: "Submission Link (optional)", component: {
++        type: 4, custom_id: LINK_ID, style: 1, placeholder: "https://...", max_length: 1000, required: false,
++      } },
++      { type: 18, label: "Submission Attachment (optional)", component: {
++        type: 19, custom_id: FILE_ID, min_values: 0, max_values: 1, required: false,
++      } },
++    ],
++  };
++}
++
++function validChannel(interaction: DiscordInteraction): boolean {
++  const guildId = process.env.STARPLAYER_GUILD_ID?.trim() || "1293483684888055840";
++  return interaction.guild_id === guildId && interaction.channel_id === STARPLAYER_CHANNEL_ID;
++}
++
++export function handleStarplayerMenu(interaction: DiscordInteraction): Response {
++  if (!validChannel(interaction)) return interactionError("Use the Starplayer submission menu in its designated channel.");
++  const category = categoryFor(interaction.data?.values?.[0] ?? "");
++  if (!category) return interactionError("Choose a valid task category.");
++  return modalResponse(starplayerModal(category.id));
++}
++
++function selectedFile(interaction: DiscordInteraction): UploadedFile | null {
++  const id = parseModalValues(interaction.data?.components ?? [])[FILE_ID];
++  if (!id) return null;
++  const attachment = interaction.data?.resolved?.attachments?.[id];
++  if (!attachment || attachment.id !== id || !attachment.filename || !attachment.url) {
++    throw new Error("The uploaded file could not be read. Please submit it again.");
++  }
++  return attachment;
++}
++
++async function postSubmission(submission: StarplayerSubmission, file: UploadedFile | null): Promise<{ channelId: string; messageId: string; attachmentIds: string[] }> {
++  const category = categoryFor(submission.category)!;
++  const payload = {
++    embeds: [{ color: 0xDFF760, title: `Saving your ${category.label} task…`,
++      description: "Your task is being recorded. You will receive a confirmation here when it is saved.",
++      fields: [
++        { name: "Task Title", value: submission.taskTitle },
++        { name: "Task Date", value: submission.taskDate },
++        ...(submission.link ? [{ name: "Submission link", value: submission.link }] : []),
++        ...(file ? [{ name: "Attachment", value: file.filename.slice(0, 250) }] : []),
++      ], footer: { text: `Submission ID: ${submission.id}` },
++    }], allowed_mentions: { parse: [] },
++  };
++  const form = new FormData();
++  form.append("payload_json", JSON.stringify(payload));
++  if (file) {
++    const url = new URL(file.url);
++    if (url.protocol !== "https:" || url.hostname !== "cdn.discordapp.com" || file.size > 25_000_000) {
++      throw new Error("The attachment could not be copied. Please upload a file under 25 MB.");
++    }
++    const source = await fetch(url, { cache: "no-store" });
++    if (!source.ok) throw new Error("The attachment expired before it could be saved. Please try again.");
++    const bytes = await source.arrayBuffer();
++    if (bytes.byteLength > 25_000_000) throw new Error("Please upload a file under 25 MB.");
++    form.append("files[0]", new Blob([bytes], { type: file.content_type || "application/octet-stream" }), file.filename);
++  }
++  let channelId: string;
++  try {
++    channelId = await openDirectMessage(submission.userId);
++  } catch (error) {
++    if (error instanceof Error && /403|50007/.test(error.message)) {
++      throw new Error("I couldn't send you a direct message. Allow DMs from server members, then submit again.");
++    }
++    throw error;
++  }
++  const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
++    method: "POST", headers: { authorization: `Bot ${discordConfig().botToken}` }, body: form,
++  });
++  if (response.status === 403) throw new Error("I couldn't send you a direct message. Allow DMs from server members, then submit again.");
++  if (!response.ok) throw new Error(`Discord could not save the submission in your DMs (${response.status}).`);
++  const message = await response.json() as { id: string; attachments?: Array<{ id: string }> };
++  if (file && !message.attachments?.length) {
++    await deleteMessage(channelId, message.id).catch(() => {});
++    throw new Error("The attachment could not be saved. Please submit it again.");
++  }
++  return { channelId, messageId: message.id, attachmentIds: message.attachments?.map((item) => item.id) ?? [] };
++}
++
++export function handleStarplayerSubmission(interaction: DiscordInteraction, background: (task: () => Promise<void>) => void): Response {
++  if (!validChannel(interaction)) return interactionError("Use the Starplayer submission menu in its designated channel.");
++  const category = categoryFor(interaction.data?.custom_id?.slice(STARPLAYER_MODAL_PREFIX.length) ?? "");
++  if (!category) return interactionError("Choose a valid task category.");
++  let file: UploadedFile | null;
++  let link: string;
++  let taskDate: string;
++  let taskTitle: string;
++  try {
++    file = selectedFile(interaction);
++    const values = parseModalValues(interaction.data?.components ?? []);
++    taskDate = validateTaskDate(values[DATE_ID] || todayInManila());
++    taskTitle = validateTaskTitle(values[TITLE_ID] ?? "");
++    link = validateSubmission(values[LINK_ID] ?? "", file?.filename ?? "");
++  } catch (error) {
++    return interactionError(error instanceof Error ? error.message : "Invalid submission.");
++  }
++  const user = discordUser(interaction);
++  background(async () => {
++    const store = new StarplayerSheetsStore();
++    await store.setup();
++    const existing = (await store.readSubmissions()).find((item) => item.id === interaction.id);
++    if (existing) {
++      await editOriginalInteraction(interaction.application_id, interaction.token, { content: `Already recorded: ${existing.messageUrl}` });
++      return;
++    }
++    const record: StarplayerSubmission = {
++      id: interaction.id, submittedAt: new Date().toISOString(), taskDate, taskTitle, userId: user.id,
++      username: user.username, displayName: user.displayName,
++      category: category.id, link, attachmentName: file?.filename ?? "", messageUrl: "", messageId: "",
++      channelId: STARPLAYER_CHANNEL_ID, guildId: interaction.guild_id!,
++    };
++    const { channelId, messageId, attachmentIds } = await postSubmission(record, file);
++    record.messageId = messageId;
++    record.channelId = channelId;
++    record.messageUrl = file
++      ? `https://creator-discord-bot.vercel.app/api/starplayer/attachments/${record.id}`
++      : `https://discord.com/channels/@me/${channelId}/${messageId}`;
++    try {
++      if (!await store.appendSubmission(record)) {
++        throw new Error("This submission was already recorded.");
++      }
++    } catch (error) {
++      await deleteMessage(channelId, messageId).catch(() => {});
++      throw error;
++    }
++    try {
++      await editMessage(channelId, messageId, {
++        attachments: attachmentIds.map((id) => ({ id })),
++        embeds: [{ color: 0xDFF760, title: "Starplayer task submitted ✓",
++          description: "Your task has been recorded in the Starplayer Sheet.",
++          fields: [
++            { name: "Category", value: category.label },
++            { name: "Task Title", value: taskTitle },
++            { name: "Task Date", value: taskDate },
++            ...(link ? [{ name: "Submission link", value: link }] : []),
++            ...(file ? [{ name: "Attachment", value: file.filename.slice(0, 250) }] : []),
++          ], footer: { text: `Submission ID: ${record.id}` },
++        }],
++      });
++    } catch (error) {
++      console.error("Starplayer task saved, but the DM confirmation could not be finished.", error);
++      await editOriginalInteraction(interaction.application_id, interaction.token, {
++        content: `Your task was recorded in the Sheet. If your DM still says it is saving, use submission ID ${record.id} to find it.`,
++      });
++      return;
++    }
++    await deleteOriginalInteraction(interaction.application_id, interaction.token).catch(async (error) => {
++      console.warn("Could not dismiss the Starplayer loading response.", error);
++      await editOriginalInteraction(interaction.application_id, interaction.token, {
++        content: "Your confirmation is in your DMs.",
++      }).catch((editError) => console.warn("Could not update the Starplayer loading response.", editError));
++    });
++  });
++  return deferredResponse(true);
 +}
 --- /dev/null
 +++ b/lib/starplayer/sheets.ts
@@ -351,157 +601,26 @@
 +    await this.put("StarplayerConfig!A2:B2", [["menuMessageId", id]]);
 +  }
 +}
---- /dev/null
-+++ b/lib/starplayer/interactions.ts
-@@ -0,0 +1,148 @@
-+import { discordConfig } from "@/lib/config";
-+import { deleteMessage, editOriginalInteraction } from "@/lib/discord/api";
-+import { deferredResponse, interactionError, modalResponse, parseModalValues } from "@/lib/discord/interactions";
-+import { STARPLAYER_CHANNEL_ID, categoryFor, todayInManila, validateSubmission, validateTaskDate, validateTaskTitle, type StarplayerSubmission } from "@/lib/starplayer/core";
-+import { StarplayerSheetsStore } from "@/lib/starplayer/sheets";
-+import type { DiscordInteraction } from "@/lib/types";
-+import { discordUser } from "@/lib/utils";
-+
-+export const STARPLAYER_MENU_ID = "starplayer:category:v1";
-+export const STARPLAYER_MODAL_PREFIX = "starplayer:submit:v1:";
-+const LINK_ID = "starplayer:link";
-+const FILE_ID = "starplayer:file";
-+const DATE_ID = "starplayer:task-date";
-+const TITLE_ID = "starplayer:task-title";
-+
-+type UploadedFile = { id: string; filename: string; url: string; size: number; content_type?: string };
-+
-+export function starplayerModal(categoryId: string): Record<string, unknown> {
-+  const category = categoryFor(categoryId);
-+  if (!category) throw new Error("Invalid Starplayer task category.");
-+  return {
-+    custom_id: `${STARPLAYER_MODAL_PREFIX}${category.id}`,
-+    title: `${category.label} submission`,
-+    components: [
-+      { type: 18, label: "Task Title", component: {
-+        type: 4, custom_id: TITLE_ID, style: 1, placeholder: "What task did you complete?",
-+        max_length: 150, required: true,
-+      } },
-+      { type: 18, label: "Task Date (YYYY-MM-DD)", component: {
-+        type: 4, custom_id: DATE_ID, style: 1, value: todayInManila(), placeholder: "YYYY-MM-DD",
-+        min_length: 10, max_length: 10, required: true,
-+      } },
-+      { type: 18, label: "Submission Link (optional)", component: {
-+        type: 4, custom_id: LINK_ID, style: 1, placeholder: "https://...", max_length: 1000, required: false,
-+      } },
-+      { type: 18, label: "Submission Attachment (optional)", component: {
-+        type: 19, custom_id: FILE_ID, min_values: 0, max_values: 1, required: false,
-+      } },
-+    ],
-+  };
-+}
-+
-+function validChannel(interaction: DiscordInteraction): boolean {
-+  const guildId = process.env.STARPLAYER_GUILD_ID?.trim() || "1293483684888055840";
-+  return interaction.guild_id === guildId && interaction.channel_id === STARPLAYER_CHANNEL_ID;
-+}
-+
-+export function handleStarplayerMenu(interaction: DiscordInteraction): Response {
-+  if (!validChannel(interaction)) return interactionError("Use the Starplayer submission menu in its designated channel.");
-+  const category = categoryFor(interaction.data?.values?.[0] ?? "");
-+  if (!category) return interactionError("Choose a valid task category.");
-+  return modalResponse(starplayerModal(category.id));
-+}
-+
-+function selectedFile(interaction: DiscordInteraction): UploadedFile | null {
-+  const id = parseModalValues(interaction.data?.components ?? [])[FILE_ID];
-+  if (!id) return null;
-+  const attachment = interaction.data?.resolved?.attachments?.[id];
-+  if (!attachment || attachment.id !== id || !attachment.filename || !attachment.url) {
-+    throw new Error("The uploaded file could not be read. Please submit it again.");
-+  }
-+  return attachment;
-+}
-+
-+async function postSubmission(submission: StarplayerSubmission, file: UploadedFile | null): Promise<string> {
-+  const category = categoryFor(submission.category)!;
-+  const payload = {
-+    embeds: [{ color: 0xDFF760, title: `${category.label} · Starplayer submission`,
-+      description: `Submitted by <@${submission.userId}>`,
-+      fields: [
-+        { name: "Task Title", value: submission.taskTitle },
-+        { name: "Task Date", value: submission.taskDate },
-+        ...(submission.link ? [{ name: "Submission link", value: submission.link }] : []),
-+        ...(file ? [{ name: "Attachment", value: file.filename.slice(0, 250) }] : []),
-+      ], footer: { text: `Submission ID: ${submission.id}` },
-+    }], allowed_mentions: { parse: [] },
-+  };
-+  const form = new FormData();
-+  form.append("payload_json", JSON.stringify(payload));
-+  if (file) {
-+    const url = new URL(file.url);
-+    if (url.protocol !== "https:" || url.hostname !== "cdn.discordapp.com" || file.size > 25_000_000) {
-+      throw new Error("The attachment could not be copied. Please upload a file under 25 MB.");
-+    }
-+    const source = await fetch(url, { cache: "no-store" });
-+    if (!source.ok) throw new Error("The attachment expired before it could be saved. Please try again.");
-+    const bytes = await source.arrayBuffer();
-+    if (bytes.byteLength > 25_000_000) throw new Error("Please upload a file under 25 MB.");
-+    form.append("files[0]", new Blob([bytes], { type: file.content_type || "application/octet-stream" }), file.filename);
-+  }
-+  const response = await fetch(`https://discord.com/api/v10/channels/${STARPLAYER_CHANNEL_ID}/messages`, {
-+    method: "POST", headers: { authorization: `Bot ${discordConfig().botToken}` }, body: form,
-+  });
-+  if (!response.ok) throw new Error(`Discord could not save the submission (${response.status}).`);
-+  const message = await response.json() as { id: string };
-+  return message.id;
-+}
-+
-+export function handleStarplayerSubmission(interaction: DiscordInteraction, background: (task: () => Promise<void>) => void): Response {
-+  if (!validChannel(interaction)) return interactionError("Use the Starplayer submission menu in its designated channel.");
-+  const category = categoryFor(interaction.data?.custom_id?.slice(STARPLAYER_MODAL_PREFIX.length) ?? "");
-+  if (!category) return interactionError("Choose a valid task category.");
-+  let file: UploadedFile | null;
-+  let link: string;
-+  let taskDate: string;
-+  let taskTitle: string;
-+  try {
-+    file = selectedFile(interaction);
-+    const values = parseModalValues(interaction.data?.components ?? []);
-+    taskDate = validateTaskDate(values[DATE_ID] || todayInManila());
-+    taskTitle = validateTaskTitle(values[TITLE_ID] ?? "");
-+    link = validateSubmission(values[LINK_ID] ?? "", file?.filename ?? "");
-+  } catch (error) {
-+    return interactionError(error instanceof Error ? error.message : "Invalid submission.");
-+  }
-+  const user = discordUser(interaction);
-+  background(async () => {
-+    const store = new StarplayerSheetsStore();
-+    await store.setup();
-+    const existing = (await store.readSubmissions()).find((item) => item.id === interaction.id);
-+    if (existing) {
-+      await editOriginalInteraction(interaction.application_id, interaction.token, { content: `Already recorded: ${existing.messageUrl}` });
-+      return;
-+    }
-+    const record: StarplayerSubmission = {
-+      id: interaction.id, submittedAt: new Date().toISOString(), taskDate, taskTitle, userId: user.id,
-+      username: user.username, displayName: user.displayName,
-+      category: category.id, link, attachmentName: file?.filename ?? "", messageUrl: "", messageId: "",
-+      channelId: STARPLAYER_CHANNEL_ID, guildId: interaction.guild_id!,
-+    };
-+    const messageId = await postSubmission(record, file);
-+    record.messageId = messageId;
-+    record.messageUrl = `https://discord.com/channels/${record.guildId}/${STARPLAYER_CHANNEL_ID}/${messageId}`;
-+    try {
-+      if (!await store.appendSubmission(record)) {
-+        await deleteMessage(STARPLAYER_CHANNEL_ID, messageId);
-+        throw new Error("This submission was already recorded.");
-+      }
-+    } catch (error) {
-+      await deleteMessage(STARPLAYER_CHANNEL_ID, messageId).catch(() => {});
-+      throw error;
-+    }
-+    await editOriginalInteraction(interaction.application_id, interaction.token, {
-+      content: `${category.label} · ${taskTitle} (${taskDate}) submitted. Your task is recorded: ${record.messageUrl}`,
-+    });
-+  });
-+  return deferredResponse(true);
-+}
+--- a/lib/types.ts
++++ b/lib/types.ts
+@@ -52,6 +52,7 @@
+   content?: string;
+   embeds?: DiscordEmbed[];
+   components?: DiscordComponent[];
++  attachments?: Array<{ id: string }>;
+   flags?: number;
+   allowed_mentions?: { parse: string[] };
+ };
+@@ -69,6 +70,9 @@
+     values?: string[];
+     options?: Array<{ name: string; type: number; value: string | number | boolean }>;
+     components?: unknown[];
++    resolved?: { attachments?: Record<string, {
++      id: string; filename: string; url: string; size: number; content_type?: string;
++    }> };
+   };
+   member?: {
+     permissions?: string;
 --- /dev/null
 +++ b/tests/google-key.test.ts
 @@ -0,0 +1,22 @@
@@ -525,6 +644,123 @@
 +  it("rejects an incomplete key with a useful error", () => {
 +    process.env.GOOGLE_PRIVATE_KEY = "-----BEGIN PRIVATE KEY-----\\ncut off";
 +    expect(() => googlePrivateKey()).toThrow("Copy the complete private_key");
++  });
++});
+--- /dev/null
++++ b/tests/starplayer-dm.test.ts
+@@ -0,0 +1,114 @@
++import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
++import { STARPLAYER_CHANNEL_ID, type StarplayerSubmission } from "@/lib/starplayer/core";
++import { handleStarplayerSubmission } from "@/lib/starplayer/interactions";
++import type { DiscordInteraction } from "@/lib/types";
++
++const sheet = vi.hoisted(() => ({
++  rows: [] as StarplayerSubmission[],
++  setup: vi.fn(async () => {}),
++  readSubmissions: vi.fn(async () => sheet.rows),
++  appendSubmission: vi.fn(async (record: StarplayerSubmission) => { sheet.rows.push(record); return true; }),
++}));
++
++vi.mock("@/lib/starplayer/sheets", () => ({
++  StarplayerSheetsStore: class {
++    setup = sheet.setup;
++    readSubmissions = sheet.readSubmissions;
++    appendSubmission = sheet.appendSubmission;
++  },
++}));
++
++const interaction: DiscordInteraction = {
++  id: "123456789012345678", application_id: "1545258381936427039", token: "test-interaction-token", type: 5,
++  guild_id: "1293483684888055840", channel_id: STARPLAYER_CHANNEL_ID,
++  member: { user: { id: "987654321098765432", username: "player" } },
++  data: { custom_id: "starplayer:submit:v1:engagement", components: [
++    { type: 18, component: { type: 4, custom_id: "starplayer:task-title", value: "Helpful strategy" } },
++    { type: 18, component: { type: 4, custom_id: "starplayer:task-date", value: "2026-09-18" } },
++    { type: 18, component: { type: 4, custom_id: "starplayer:link", value: "https://example.com/task" } },
++  ] },
++};
++
++beforeEach(() => {
++  sheet.rows.length = 0;
++  vi.clearAllMocks();
++  process.env.DISCORD_BOT_TOKEN = "test-token";
++});
++afterEach(() => vi.unstubAllGlobals());
++
++describe("Starplayer private receipts", () => {
++  it("records the task, confirms it in DM, and sends no public message to the submission channel", async () => {
++    const calls: Array<{ url: string; method: string; body: unknown }> = [];
++    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
++      calls.push({ url: String(url), method: init?.method ?? "GET", body: init?.body });
++      if (String(url).endsWith("/users/@me/channels")) return Response.json({ id: "111111111111111111" });
++      if (String(url).includes("/webhooks/") && init?.method === "DELETE") return new Response(null, { status: 204 });
++      if (String(url).endsWith("/channels/111111111111111111/messages") && init?.method === "POST") {
++        return Response.json({ id: "222222222222222222" });
++      }
++      return Response.json({ id: "222222222222222222" });
++    }));
++    let work: (() => Promise<void>) | undefined;
++    const response = handleStarplayerSubmission(interaction, (task) => { work = task; });
++    expect((await response.json()).data.flags).toBe(64);
++    await work?.();
++
++    expect(sheet.appendSubmission).toHaveBeenCalledOnce();
++    expect(sheet.rows[0]).toMatchObject({
++      category: "engagement", channelId: "111111111111111111", messageId: "222222222222222222",
++      messageUrl: "https://discord.com/channels/@me/111111111111111111/222222222222222222",
++    });
++    expect(calls.some((call) => call.url.includes(`/channels/${STARPLAYER_CHANNEL_ID}/messages`))).toBe(false);
++    expect(calls.some((call) => call.method === "PATCH" && call.url.endsWith("/channels/111111111111111111/messages/222222222222222222") &&
++      JSON.parse(String(call.body)).embeds[0].title === "Starplayer task submitted ✓")).toBe(true);
++    expect(calls.some((call) => call.method === "DELETE" && call.url.includes("/webhooks/") &&
++      call.url.endsWith("/messages/@original"))).toBe(true);
++  });
++
++  it("keeps files accessible from the dashboard without posting in the submission channel", async () => {
++    const calls: Array<{ url: string; method: string; body: unknown }> = [];
++    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
++      calls.push({ url: String(url), method: init?.method ?? "GET", body: init?.body });
++      if (String(url).startsWith("https://cdn.discordapp.com/")) return new Response(new Uint8Array([1, 2, 3]));
++      if (String(url).endsWith("/users/@me/channels")) return Response.json({ id: "111111111111111111" });
++      if (String(url).includes("/webhooks/") && init?.method === "DELETE") return new Response(null, { status: 204 });
++      if (String(url).endsWith("/channels/111111111111111111/messages") && init?.method === "POST") {
++        return Response.json({ id: "222222222222222222", attachments: [{ id: "333333333333333333", url: "https://cdn.discordapp.com/attachments/file.png" }] });
++      }
++      if (init?.method === "GET") return Response.json({ id: "222222222222222222", channel_id: "111111111111111111", attachments: [
++        { id: "333333333333333333", url: "https://cdn.discordapp.com/attachments/file.png?ex=latest" },
++      ] });
++      return Response.json({ id: "222222222222222222" });
++    }));
++    const withFile: DiscordInteraction = { ...interaction, data: { ...interaction.data,
++      components: [
++        ...interaction.data!.components!,
++        { type: 18, component: { type: 19, custom_id: "starplayer:file", values: ["777"] } },
++      ], resolved: { attachments: { "777": { id: "777", filename: "file.png", size: 3,
++        url: "https://cdn.discordapp.com/ephemeral-attachments/file.png" } } },
++    } };
++    let work: (() => Promise<void>) | undefined;
++    handleStarplayerSubmission(withFile, (task) => { work = task; });
++    await work?.();
++    expect(sheet.rows[0].messageUrl).toBe(`https://creator-discord-bot.vercel.app/api/starplayer/attachments/${interaction.id}`);
++    expect(calls.some((call) => call.url.includes(`/channels/${STARPLAYER_CHANNEL_ID}/messages`))).toBe(false);
++    const edit = calls.find((call) => call.method === "PATCH" && call.url.includes("/channels/111111111111111111/messages/"));
++    expect(JSON.parse(String(edit?.body)).attachments).toEqual([{ id: "333333333333333333" }]);
++
++    const { GET } = await import("@/app/api/starplayer/attachments/[id]/route");
++    const attachment = await GET(new Request(sheet.rows[0].messageUrl), { params: Promise.resolve({ id: interaction.id }) });
++    expect(attachment.status).toBe(302);
++    expect(attachment.headers.get("location")).toBe("https://cdn.discordapp.com/attachments/file.png?ex=latest");
++  });
++
++  it("does not save a task if the player's DMs are closed", async () => {
++    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
++      if (String(url).endsWith("/users/@me/channels")) return Response.json({ message: "Cannot send messages to this user", code: 50007 }, { status: 403 });
++      throw new Error("No other request should be sent.");
++    }));
++    let work: (() => Promise<void>) | undefined;
++    handleStarplayerSubmission(interaction, (task) => { work = task; });
++    await expect(work?.()).rejects.toThrow("Allow DMs from server members");
++    expect(sheet.appendSubmission).not.toHaveBeenCalled();
 +  });
 +});
 --- /dev/null
