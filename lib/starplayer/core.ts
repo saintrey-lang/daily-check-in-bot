@@ -11,6 +11,7 @@ export type StarplayerCategory = (typeof STARPLAYER_CATEGORIES)[number]["id"];
 export type StarplayerSubmission = {
   id: string;
   submittedAt: string;
+  taskDate: string;
   userId: string;
   username: string;
   displayName: string;
@@ -22,6 +23,24 @@ export type StarplayerSubmission = {
   channelId: string;
   guildId: string;
 };
+
+export function todayInManila(now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(now);
+  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
+}
+
+export function validateTaskDate(input: string, now: Date = new Date()): string {
+  const date = input.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`)) ||
+    new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date) {
+    throw new Error("Enter the task date as YYYY-MM-DD, for example 2026-09-18.");
+  }
+  if (date > todayInManila(now)) throw new Error("Task Date cannot be in the future (Manila time).");
+  return date;
+}
 
 export function categoryFor(value: string): (typeof STARPLAYER_CATEGORIES)[number] | null {
   return STARPLAYER_CATEGORIES.find((category) => category.id === value || category.label === value) ?? null;

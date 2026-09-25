@@ -3,7 +3,7 @@ import {
   ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, type TextChannel,
 } from "discord.js";
 import {
-  STARPLAYER_CATEGORIES, STARPLAYER_CHANNEL_ID, categoryFor, type StarplayerCategory,
+  STARPLAYER_CATEGORIES, STARPLAYER_CHANNEL_ID, categoryFor, todayInManila, type StarplayerCategory,
 } from "../lib/starplayer/core";
 import { StarplayerSheetsStore } from "../lib/starplayer/sheets";
 
@@ -11,7 +11,8 @@ export const MENU_ID = "starplayer:category:v1";
 const MODAL_PREFIX = "starplayer:submit:v1:";
 const LINK_ID = "starplayer:link";
 const FILE_ID = "starplayer:file";
-const MENU_TEXT = "**STARPLAYER TASK SUBMISSION**\nChoose a task category below. Add a submission link, an attachment, or both. Each category counts as finished once you submit at least one task.";
+const DATE_ID = "starplayer:task-date";
+const MENU_TEXT = "**STARPLAYER TASK SUBMISSION**\nChoose a task category below. Enter the date you did the task (you can choose a previous date), then add a submission link, an attachment, or both. Each category counts as finished once you submit at least one task.";
 
 export function submissionMenu() {
   return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
@@ -28,6 +29,10 @@ export function submissionModal(category: StarplayerCategory) {
     .setCustomId(`${MODAL_PREFIX}${category}`)
     .setTitle(`${label} submission`)
     .addLabelComponents(
+      new LabelBuilder().setLabel("Task Date (YYYY-MM-DD)").setTextInputComponent(
+        new TextInputBuilder().setCustomId(DATE_ID).setStyle(TextInputStyle.Short)
+          .setValue(todayInManila()).setPlaceholder("YYYY-MM-DD").setMinLength(10).setMaxLength(10).setRequired(true),
+      ),
       new LabelBuilder().setLabel("Submission Link (optional)").setTextInputComponent(
         new TextInputBuilder().setCustomId(LINK_ID).setStyle(TextInputStyle.Short)
           .setPlaceholder("https://...").setMaxLength(1000).setRequired(false),

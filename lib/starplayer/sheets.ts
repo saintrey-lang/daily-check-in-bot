@@ -4,7 +4,7 @@ import { STARPLAYER_SHEET_ID, categoryFor, type StarplayerSubmission } from "./c
 export const SUBMISSION_HEADERS = [
   "Submission ID", "Submitted At (UTC)", "Discord User ID", "Username", "Display Name",
   "Task Category", "Submission Link", "Attachment Name", "Discord Submission URL",
-  "Discord Message ID", "Channel ID", "Server ID",
+  "Discord Message ID", "Channel ID", "Server ID", "Task Date",
 ];
 const CONFIG_HEADERS = ["Key", "Value"];
 
@@ -56,13 +56,18 @@ export class StarplayerSheetsStore {
   }
 
   async setup(): Promise<void> {
-    const tabs = [["StarplayerSubmissions", SUBMISSION_HEADERS, "L"], ["StarplayerConfig", CONFIG_HEADERS, "B"]] as const;
+    const tabs = [["StarplayerSubmissions", SUBMISSION_HEADERS, "M"], ["StarplayerConfig", CONFIG_HEADERS, "B"]] as const;
     const metadata = await this.request<Metadata>("?fields=sheets.properties", "GET");
     const existing = new Set((metadata.sheets ?? []).map((sheet) => sheet.properties?.title));
     const missing = tabs.filter(([name]) => !existing.has(name));
     if (missing.length) await this.request(":batchUpdate", "POST", { requests: missing.map(([title]) => ({ addSheet: { properties: { title } } })) });
     for (const [name, columns, last] of tabs) {
       const saved = (await this.values(`${name}!A1:${last}1`))[0]?.map(String) ?? [];
+      if (name === "StarplayerSubmissions" && saved.length === SUBMISSION_HEADERS.length - 1 &&
+        JSON.stringify(saved) === JSON.stringify(SUBMISSION_HEADERS.slice(0, -1))) {
+        await this.put("StarplayerSubmissions!M1", [["Task Date"]]);
+        continue;
+      }
       if (saved.length && JSON.stringify(saved) !== JSON.stringify(columns)) {
         throw new Error(`${name} has unexpected headers. Restore its headers before using Starplayer submissions.`);
       }
@@ -74,12 +79,12 @@ export class StarplayerSheetsStore {
   }
 
   async readSubmissions(): Promise<StarplayerSubmission[]> {
-    const rows = await this.values("StarplayerSubmissions!A2:L");
+    const rows = await this.values("StarplayerSubmissions!A2:M");
     return rows.flatMap((row) => {
       const category = categoryFor(String(row[5] ?? ""));
       if (!row[0] || !category) return [];
       return [{
-        id: String(row[0]), submittedAt: String(row[1] ?? ""), userId: String(row[2] ?? ""),
+        id: String(row[0]), submittedAt: String(row[1] ?? ""), taskDate: String(row[12] ?? ""), userId: String(row[2] ?? ""),
         username: String(row[3] ?? ""), displayName: String(row[4] ?? ""), category: category.id,
         link: String(row[6] ?? ""), attachmentName: String(row[7] ?? ""),
         messageUrl: String(row[8] ?? ""), messageId: String(row[9] ?? ""),
@@ -91,11 +96,11 @@ export class StarplayerSheetsStore {
   async appendSubmission(submission: StarplayerSubmission): Promise<boolean> {
     const ids = await this.values("StarplayerSubmissions!A2:A");
     if (ids.some((row) => String(row[0] ?? "") === submission.id)) return false;
-    await this.append("StarplayerSubmissions!A:L", [[
+    await this.append("StarplayerSubmissions!A:M", [[
       submission.id, submission.submittedAt, submission.userId, submission.username,
       submission.displayName, categoryFor(submission.category)!.label, submission.link,
       submission.attachmentName, submission.messageUrl, submission.messageId,
-      submission.channelId, submission.guildId,
+      submission.channelId, submission.guildId, submission.taskDate,
     ]]);
     return true;
   }
