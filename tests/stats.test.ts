@@ -42,6 +42,13 @@ describe("Discord server statistics", () => {
     expect(new Date(timestamp).toISOString()).toBe("2026-07-31T16:00:00.000Z");
   });
 
+  it("supports an all-time window beyond one year", () => {
+    const summary = statsSummaryRange([row], "2024-09-01", "2026-10-08");
+    expect(summary.messages).toBe(3);
+    expect(summary.daily[0].date).toBe("2024-09-01");
+    expect(summary.daily.at(-1)?.date).toBe("2026-10-08");
+  });
+
   it("lists observed role players who were idle in the selected dates, excluding bots and incomplete history", () => {
     const roleId = "111111111111111111";
     const old = { ...row, id: "old", date: "2026-08-15", userId: "old-player", displayName: "Idle player", roleIds: [roleId] };

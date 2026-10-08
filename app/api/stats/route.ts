@@ -19,10 +19,11 @@ export async function GET(request: Request) {
     const today = localDateAt(new Date(), process.env.CHECKIN_TIMEZONE?.trim() || "Asia/Manila");
     const params = new URL(request.url).searchParams;
     const period = params.get("period") || "seven";
-    if (!["seven", "thirty", "custom"].includes(period)) throw new Error("Choose a valid statistics period.");
+    if (!["seven", "thirty", "custom", "all"].includes(period)) throw new Error("Choose a valid statistics period.");
     const end = params.get("end") || today;
     if (!validStatsDate(end) || end > today) throw new Error("Choose a date on or before today.");
-    const start = period === "custom" ? (params.get("start") || end) : shiftDate(end, period === "seven" ? -6 : -29);
+    const start = period === "custom" ? (params.get("start") || end) :
+      period === "all" ? (plan?.from || end) : shiftDate(end, period === "seven" ? -6 : -29);
     const roleId = params.get("roleId") || "";
     if (roleId && !/^\d{17,20}$/.test(roleId)) throw new Error("Choose a valid Discord role.");
     const memberRoleId = params.get("memberRoleId") || "";

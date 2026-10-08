@@ -5,7 +5,6 @@ import { StatsSheetsStore } from "../lib/stats/sheets";
 
 type HistoryChannel = TextChannel | NewsChannel | ThreadChannel | VoiceChannel;
 const DISCORD_EPOCH = 1_420_070_400_000;
-const HISTORY_START = "2026-08-01";
 
 // Convert the dashboard's local midnight to a Discord snowflake boundary.
 export function dateBoundarySnowflake(date: string, timeZone: string): string {
@@ -21,6 +20,14 @@ export function dateBoundarySnowflake(date: string, timeZone: string): string {
     guess += target - local;
   }
   return (BigInt(guess - DISCORD_EPOCH) << 22n).toString();
+}
+
+/** A completed channel has already imported from the previous cutoff onward. */
+export function rewindCompletedHistory(states: HistoryProgress[], previousStart: string, timeZone: string): HistoryProgress[] {
+  const before = dateBoundarySnowflake(previousStart, timeZone);
+  return states.filter((state) => state.status === "complete").map((state) => ({
+    ...state, before, coveredAfter: shiftDate(previousStart, -1), status: "pending", error: "",
+  }));
 }
 
 type MemberSnapshot = { roleIds: string[]; name: string } | null;
@@ -136,8 +143,23 @@ export function attachHistory(client: Client, guildId: string, store: StatsSheet
       await store.saveRoles(guild.roles.cache.filter((role) => role.id !== guildId)
         .map((role) => ({ id: role.id, name: role.name })).sort((a, b) => a.name.localeCompare(b.name)));
       let plan = await store.readHistoryPlan();
+      const existing = await store.readHistoryProgress();
+      const serverStart = localDateAt(guild.createdAt, timeZone);
       if (!plan) {
-        plan = { from: HISTORY_START, until: localDateAt(new Date(), timeZone) };
+        plan = { from: serverStart, until: localDateAt(new Date(), timeZone) };
+        await store.saveHistoryPlan(plan);
+      } else if (serverStart < plan.from) {
+        // Keep the existing import and its coverage. Reopen only completed channels,
+        // starting directly before the old cutoff instead of scanning those dates again.
+        const byId = new Map(existing.map((state) => [state.channelId, state]));
+        for (const rewound of rewindCompletedHistory(existing, plan.from, timeZone)) {
+          await store.saveHistoryProgress(rewound);
+          Object.assign(byId.get(rewound.channelId)!, rewound);
+        }
+        plan = { ...plan, from: serverStart };
+        await store.saveHistoryPlan(plan);
+      } else if (serverStart > plan.from) {
+        plan = { ...plan, from: serverStart };
         await store.saveHistoryPlan(plan);
       }
       const accessible = new Map<string, HistoryChannel>();
@@ -170,7 +192,6 @@ export function attachHistory(client: Client, guildId: string, store: StatsSheet
           console.warn(`Could not list archived threads in channel ${channel.id}; importing other channels.`, error);
         }
       }
-      const existing = await store.readHistoryProgress();
       const registered = new Set(existing.map((state) => state.channelId));
       const missing = [...accessible.values()].filter((channel) => !registered.has(channel.id)).map((channel) => ({
         channelId: channel.id, channelName: channel.name, before: dateBoundarySnowflake(plan.until, timeZone),

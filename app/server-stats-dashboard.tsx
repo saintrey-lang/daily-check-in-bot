@@ -15,7 +15,7 @@ function hours(seconds: number): string { return `${(seconds / 3_600).toFixed(1)
 export default function ServerStatsDashboard() {
   const [data, setData] = useState<StatsResponse | null>(null);
   const [config, setConfig] = useState<StatsConfig | null>(null);
-  const [period, setPeriod] = useState<"seven" | "thirty" | "custom">("seven");
+  const [period, setPeriod] = useState<"seven" | "thirty" | "custom" | "all">("seven");
   const [asOf, setAsOf] = useState("");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
@@ -83,12 +83,13 @@ export default function ServerStatsDashboard() {
         <button type="button" aria-pressed={period === "seven"} onClick={() => setPeriod("seven")}>Last 7 days</button>
         <button type="button" aria-pressed={period === "thirty"} onClick={() => setPeriod("thirty")}>Last 30 days</button>
         <button type="button" aria-pressed={period === "custom"} onClick={() => setPeriod("custom")}>Custom date</button>
+        <button type="button" aria-pressed={period === "all"} onClick={() => setPeriod("all")}>Since server creation</button>
       </div>
       <div className="stats-filters">
         {period === "custom" ? <>
-          <label className="field-label">From <input type="date" value={customStart} max={customEnd || data.today} onChange={(event) => setCustomStart(event.target.value)} /></label>
-          <label className="field-label">To <input type="date" value={customEnd} min={customStart} max={data.today} onChange={(event) => setCustomEnd(event.target.value)} /></label>
-        </> : <label className="field-label">View through <input type="date" value={asOf} max={data.today} onChange={(event) => setAsOf(event.target.value)} /></label>}
+          <label className="field-label">From <input type="date" value={customStart} min={data.historyPlan?.from} max={customEnd || data.today} onChange={(event) => setCustomStart(event.target.value)} /></label>
+          <label className="field-label">To <input type="date" value={customEnd} min={customStart || data.historyPlan?.from} max={data.today} onChange={(event) => setCustomEnd(event.target.value)} /></label>
+        </> : <label className="field-label">View through <input type="date" value={asOf} min={data.historyPlan?.from} max={data.today} onChange={(event) => setAsOf(event.target.value)} /></label>}
         <label className="field-label">Role
           <select value={roleId} onChange={(event) => setRoleId(event.target.value)}>
             <option value="">All roles</option>
@@ -98,7 +99,7 @@ export default function ServerStatsDashboard() {
         <span className="stats-range">{summary.start} to {summary.end} · {config.timeZone}</span>
       </div>
       {data.historyPlan && <div className="stats-history" role="status">
-        August history import: {data.historyProgress.complete} of {data.historyProgress.total} accessible channels completed
+        Server history import: {data.historyProgress.complete} of {data.historyProgress.total} accessible channels completed
         {data.historyProgress.total > 0 && data.historyProgress.complete === data.historyProgress.total ? " · Complete" : " · In progress"}.
         Coverage target: {data.historyPlan.from} to {shiftDate(data.historyPlan.until, -1)}.
         {data.historyProgress.errors.length > 0 && <> {data.historyProgress.errors.length} channel(s) need attention; see the ServerStatsHistoryState Sheet tab.</>}
@@ -149,7 +150,7 @@ export default function ServerStatsDashboard() {
         </div>
         <p>Leave the channel ID blank to pause Discord posts. The bot needs View Channel, Send Messages, Embed Links, and Read Message History there.</p>
       </form>
-      <p className="stats-note">Role filtering uses roles observed when activity was collected or imported. It cannot reproduce past role changes. Historical voice time is unavailable; bot messages on the initial import cutoff day before the new worker starts may also be missing. Status, game activity, and invite attribution are not counted.</p>
+      <p className="stats-note">Role filtering uses roles observed when activity was collected or imported. It cannot reproduce past role changes. Historical voice time is unavailable; deleted or inaccessible messages and some bot messages on the initial import cutoff day cannot be recovered. Status, game activity, and invite attribution are not counted.</p>
     </>}
   </section>;
 }

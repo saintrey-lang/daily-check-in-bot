@@ -40,8 +40,8 @@ export function statsSummaryRange(
   options: { roleId?: string; history?: StatDelta[]; progress?: HistoryProgress[]; plan?: HistoryPlan | null } = {},
 ): StatsSummary {
   if (!validStatsDate(start) || !validStatsDate(end) || start > end ||
-      (Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86_400_000 >= 366) {
-    throw new Error("Choose a valid date range of up to 366 days.");
+      (Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86_400_000 >= 5_000) {
+    throw new Error("Choose a valid date range of up to 5,000 days.");
   }
   const days = Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86_400_000) + 1;
   const covered = new Map((options.progress ?? []).map((item) => [item.channelId, item.coveredAfter]));
