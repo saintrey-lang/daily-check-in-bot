@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { STARPLAYER_CATEGORIES, STARPLAYER_SHEET_ID, type StarplayerCategory, type StarplayerSubmission } from "@/lib/starplayer/core";
+import { STARPLAYER_CATEGORIES, STARPLAYER_SHEET_ID, type StarplayerCategory, type StarplayerCategoryCounts, type StarplayerSubmission } from "@/lib/starplayer/core";
 
 type Summary = {
   totalSubmissions: number;
@@ -10,7 +10,7 @@ type Summary = {
   categories: Array<{ id: StarplayerCategory; label: string; submissions: number; players: number }>;
   players: Array<{
     userId: string; username: string; displayName: string;
-    categories: StarplayerCategory[]; submissions: number; latestAt: string;
+    categories: StarplayerCategory[]; categoryCounts: StarplayerCategoryCounts; submissions: number; latestAt: string;
   }>;
   recent: StarplayerSubmission[];
   sheetUrl: string;
@@ -48,7 +48,7 @@ export default function StarplayerDashboard() {
     <div className="section-head starplayer-heading"><div>
       <span className="eyebrow">STARPLAYER TASKS</span>
       <h2>Submission tracker</h2>
-      <p>Category completion means a player has submitted at least one task in that category.</p>
+      <p>Player progress shows how many tasks each player submitted in each category.</p>
     </div><a className="sheet-link" href={summary?.sheetUrl ?? `https://docs.google.com/spreadsheets/d/${STARPLAYER_SHEET_ID}/edit`} target="_blank" rel="noreferrer">Open Starplayer Sheet ↗</a></div>
     {error && <div className="error banner" role="alert">{error}</div>}
     {!summary ? <div className="loading">Loading Starplayer submissions…</div> : <>
@@ -65,7 +65,10 @@ export default function StarplayerDashboard() {
       <div className="starplayer-panel"><div className="panel-head"><h3>Player progress</h3><span>{summary.uniquePlayers} players</span></div>
         {summary.players.length ? <div className="table-scroll"><table><thead><tr><th>Starplayer</th>{STARPLAYER_CATEGORIES.map((category) => <th key={category.id}>{category.label}</th>)}<th>Total submissions</th></tr></thead><tbody>
           {summary.players.map((player) => <tr key={player.userId}><td><strong>{player.displayName || player.username}</strong><small>@{player.username}</small></td>
-            {STARPLAYER_CATEGORIES.map((category) => <td key={category.id}><span className={`task-mark ${player.categories.includes(category.id) ? "done" : ""}`}>{player.categories.includes(category.id) ? "✓ Finished" : "—"}</span></td>)}
+            {STARPLAYER_CATEGORIES.map((category) => {
+              const count = player.categoryCounts[category.id];
+              return <td key={category.id}><span className={`task-mark ${count ? "done" : ""}`}>{count ? `${count} Submission Finish` : "—"}</span></td>;
+            })}
             <td>{player.submissions}</td></tr>)}
         </tbody></table></div> : <p className="empty-state">No submissions yet. Players can use the pinned category dropdown in the submission channel.</p>}
       </div>

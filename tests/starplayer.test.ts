@@ -49,19 +49,23 @@ describe("Starplayer submissions", () => {
     expect(() => validateSubmission("javascript:alert(1)", "x.png")).toThrow("https://");
   });
 
-  it("counts every submission but finishes each player-category task only once", () => {
+  it("counts every submission per player and category while keeping distinct category totals", () => {
     const summary = starplayerSummary([
       submission("1", "one", "strategy-tips"),
       submission("2", "one", "strategy-tips"),
+      submission("6", "one", "strategy-tips"),
       submission("3", "one", "engagement"),
       submission("4", "two", "version-discussion"),
       submission("5", "two", "others"),
     ]);
-    expect(summary.totalSubmissions).toBe(5);
+    expect(summary.totalSubmissions).toBe(6);
     expect(summary.uniquePlayers).toBe(2);
     expect(summary.completedTasks).toBe(4);
-    expect(summary.categories.map((category) => [category.submissions, category.players])).toEqual([[2, 1], [1, 1], [1, 1], [1, 1]]);
+    expect(summary.categories.map((category) => [category.submissions, category.players])).toEqual([[3, 1], [1, 1], [1, 1], [1, 1]]);
     expect(summary.players.find((player) => player.userId === "one")?.categories).toEqual(["strategy-tips", "engagement"]);
+    expect(summary.players.find((player) => player.userId === "one")?.categoryCounts).toEqual({
+      "strategy-tips": 3, engagement: 1, "version-discussion": 0, others: 0,
+    });
   });
 
   it("records readable rows in the separate Starplayer Sheet and ignores duplicate interaction IDs", async () => {

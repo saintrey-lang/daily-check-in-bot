@@ -9,6 +9,7 @@ export const STARPLAYER_CATEGORIES = [
 ] as const;
 
 export type StarplayerCategory = (typeof STARPLAYER_CATEGORIES)[number]["id"];
+export type StarplayerCategoryCounts = Record<StarplayerCategory, number>;
 export type StarplayerSubmission = {
   id: string;
   submittedAt: string;
@@ -72,22 +73,23 @@ export function validateSubmission(linkInput: string, attachmentName: string): s
 export function starplayerSummary(submissions: StarplayerSubmission[]) {
   const people = new Map<string, {
     userId: string; username: string; displayName: string;
-    categories: Set<StarplayerCategory>; submissions: number; latestAt: string;
+    categoryCounts: StarplayerCategoryCounts; submissions: number; latestAt: string;
   }>();
   for (const submission of submissions) {
     const person = people.get(submission.userId) ?? {
       userId: submission.userId, username: submission.username, displayName: submission.displayName,
-      categories: new Set<StarplayerCategory>(), submissions: 0, latestAt: "",
+      categoryCounts: { "strategy-tips": 0, engagement: 0, "version-discussion": 0, others: 0 },
+      submissions: 0, latestAt: "",
     };
     person.username = submission.username;
     person.displayName = submission.displayName;
-    person.categories.add(submission.category);
+    person.categoryCounts[submission.category] += 1;
     person.submissions += 1;
     if (submission.submittedAt > person.latestAt) person.latestAt = submission.submittedAt;
     people.set(submission.userId, person);
   }
   const players = [...people.values()].map((person) => ({
-    ...person, categories: STARPLAYER_CATEGORIES.filter((category) => person.categories.has(category.id)).map((category) => category.id),
+    ...person, categories: STARPLAYER_CATEGORIES.filter((category) => person.categoryCounts[category.id] > 0).map((category) => category.id),
   })).sort((a, b) => b.categories.length - a.categories.length || b.submissions - a.submissions || a.displayName.localeCompare(b.displayName));
   return {
     totalSubmissions: submissions.length,
