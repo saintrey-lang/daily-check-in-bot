@@ -18,6 +18,9 @@ export type StatsSummary = {
   members: Array<{ id: string; name: string; messages: number; voiceSeconds: number; isBot: boolean }>;
   channels: Array<{ id: string; name: string; messages: number; voiceSeconds: number }>;
 };
+export type ChannelDrilldownRow = StatsSummary["channels"][number] & {
+  historyStatus: HistoryProgress["status"] | "live-only";
+};
 
 export function shiftDate(date: string, days: number): string {
   return new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
@@ -85,6 +88,22 @@ export function statsSummaryRange(
     members: active.sort((a, b) => b.messages + b.voiceSeconds / 60 - a.messages - a.voiceSeconds / 60),
     channels: [...channels.values()].sort((a, b) => b.messages + b.voiceSeconds / 60 - a.messages - a.voiceSeconds / 60),
   };
+}
+
+/** Keep the channel inventory visible even when a channel is idle in the selected range. */
+export function channelDrilldownRows(summary: StatsSummary, progress: HistoryProgress[]): ChannelDrilldownRow[] {
+  const activity = new Map(summary.channels.map((channel) => [channel.id, channel]));
+  const listed = new Set<string>();
+  const channels: ChannelDrilldownRow[] = progress.map((state) => {
+    listed.add(state.channelId);
+    const current = activity.get(state.channelId);
+    return { id: state.channelId, name: current?.name || state.channelName || state.channelId,
+      messages: current?.messages ?? 0, voiceSeconds: current?.voiceSeconds ?? 0, historyStatus: state.status };
+  });
+  for (const channel of summary.channels) {
+    if (!listed.has(channel.id)) channels.push({ ...channel, historyStatus: "live-only" });
+  }
+  return channels.sort((a, b) => b.messages - a.messages || b.voiceSeconds - a.voiceSeconds || a.name.localeCompare(b.name));
 }
 
 /** Players whose selected role was observed in tracked activity, with zeros for an idle period. */

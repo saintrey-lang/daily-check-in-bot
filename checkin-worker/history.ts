@@ -1,9 +1,9 @@
-import { ChannelType, PermissionFlagsBits, type Client, type Guild, type Message, type NewsChannel, type TextChannel, type ThreadChannel, type VoiceChannel } from "discord.js";
+import { ChannelType, PermissionFlagsBits, type Client, type Guild, type Message, type NewsChannel, type StageChannel, type TextChannel, type ThreadChannel, type VoiceChannel } from "discord.js";
 import { localDateAt } from "../lib/checkin/core";
 import { shiftDate, type HistoryPlan, type HistoryProgress, type StatDelta } from "../lib/stats/core";
 import { StatsSheetsStore } from "../lib/stats/sheets";
 
-type HistoryChannel = TextChannel | NewsChannel | ThreadChannel | VoiceChannel;
+type HistoryChannel = TextChannel | NewsChannel | ThreadChannel | VoiceChannel | StageChannel;
 const DISCORD_EPOCH = 1_420_070_400_000;
 
 // Convert the dashboard's local midnight to a Discord snowflake boundary.
@@ -165,31 +165,39 @@ export function attachHistory(client: Client, guildId: string, store: StatsSheet
       const accessible = new Map<string, HistoryChannel>();
       const add = (channel: HistoryChannel) => {
         const permissions = channel.permissionsFor(client.user!);
-        if (permissions?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory]) &&
-            (channel.type !== ChannelType.GuildVoice || permissions.has(PermissionFlagsBits.Connect))) accessible.set(channel.id, channel);
+        if (permissions?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory])) accessible.set(channel.id, channel);
       };
       const all = await guild.channels.fetch();
       for (const channel of all.values()) {
         if (!channel) continue;
-        if (channel.type === ChannelType.GuildText || channel.type === ChannelType.GuildAnnouncement || channel.type === ChannelType.GuildVoice) add(channel);
+        if (channel.type === ChannelType.GuildText || channel.type === ChannelType.GuildAnnouncement ||
+            channel.type === ChannelType.GuildVoice || channel.type === ChannelType.GuildStageVoice) add(channel);
       }
       const active = await guild.channels.fetchActiveThreads();
       for (const thread of active.threads.values()) add(thread);
       for (const channel of all.values()) {
         if (!channel || !(channel.type === ChannelType.GuildText || channel.type === ChannelType.GuildAnnouncement ||
             channel.type === ChannelType.GuildForum || channel.type === ChannelType.GuildMedia)) continue;
-        let before: Date | undefined;
-        try {
-          do {
-            const page = await channel.threads.fetchArchived({ type: "public", limit: 100, ...(before ? { before } : {}) });
-            for (const thread of page.threads.values()) add(thread);
-            const oldestTimestamp = [...page.threads.values()].at(-1)?.archiveTimestamp;
-            if (!page.hasMore || !oldestTimestamp || (before && oldestTimestamp >= before.getTime()) || !page.threads.size) break;
-            if (oldestTimestamp < Date.parse(`${plan.from}T00:00:00Z`) - 86_400_000) break;
-            before = new Date(oldestTimestamp);
-          } while (true);
-        } catch (error) {
-          console.warn(`Could not list archived threads in channel ${channel.id}; importing other channels.`, error);
+        const variants = channel.type === ChannelType.GuildText ? ["public", "private"] as const : ["public"] as const;
+        for (const type of variants) {
+          const fetchAll = type === "private" && !!channel.permissionsFor(client.user!)?.has(PermissionFlagsBits.ManageThreads);
+          const joined = type === "private" && !fetchAll;
+          let before: Date | ThreadChannel | undefined;
+          let previousCursor = "";
+          try {
+            do {
+              const page = await channel.threads.fetchArchived({ type, fetchAll, limit: 100, ...(before ? { before } : {}) });
+              for (const thread of page.threads.values()) add(thread);
+              const oldest = [...page.threads.values()].at(-1);
+              const cursor = joined ? oldest?.id : oldest?.archiveTimestamp;
+              if (!page.hasMore || !cursor || String(cursor) === previousCursor) break;
+              if (!joined && Number(cursor) < Date.parse(`${plan.from}T00:00:00Z`) - 86_400_000) break;
+              before = joined ? oldest : new Date(Number(cursor));
+              previousCursor = String(cursor);
+            } while (true);
+          } catch (error) {
+            console.warn(`Could not list ${type} archived threads in channel ${channel.id}; importing other channels.`, error);
+          }
         }
       }
       const registered = new Set(existing.map((state) => state.channelId));

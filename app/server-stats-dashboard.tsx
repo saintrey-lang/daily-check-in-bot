@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { shiftDate, type StatsConfig, type StatsRole, type StatsSummary } from "@/lib/stats/core";
+import { shiftDate, type ChannelDrilldownRow, type StatsConfig, type StatsRole, type StatsSummary } from "@/lib/stats/core";
 
 type StatsResponse = {
   summary: StatsSummary; config: StatsConfig; lastReport: string; sheetUrl: string; today: string;
   roles: StatsRole[]; historyPlan: { from: string; until: string } | null;
   memberRoleId: string; memberRoster: StatsSummary["members"];
+  channelDrilldown: ChannelDrilldownRow[];
   historyProgress: { total: number; complete: number; errors: Array<{ channelName: string; error: string }> };
 };
 
@@ -70,7 +71,7 @@ export default function ServerStatsDashboard() {
   const summary = data?.summary;
   const memberSource = memberRoleId ? (data?.memberRoleId === memberRoleId ? data.memberRoster : []) : summary?.members ?? [];
   const members = memberSource.filter((member) => `${member.name} ${member.id}`.toLowerCase().includes(memberQuery.trim().toLowerCase()));
-  const channels = summary?.channels.filter((channel) => `${channel.name} ${channel.id}`.toLowerCase().includes(channelQuery.trim().toLowerCase())) ?? [];
+  const channels = data?.channelDrilldown.filter((channel) => `${channel.name} ${channel.id}`.toLowerCase().includes(channelQuery.trim().toLowerCase())) ?? [];
   return <section className="server-stats">
     <div className="section-head starplayer-heading"><div>
       <span className="eyebrow">DISCORD SERVER</span><h2>Community statistics</h2>
@@ -124,9 +125,10 @@ export default function ServerStatsDashboard() {
           </tbody></table></div>{!members.length && <p className="empty-state">{memberRoleId ? "No tracked players match this role and search." : "No matching activity for this period."}</p>}</div>
         <div className="starplayer-panel"><div className="panel-head"><h3>Channel drilldown</h3><span>{channels.length} results</span></div>
           <label className="stats-search">Search channel name or ID<input type="search" value={channelQuery} onChange={(event) => setChannelQuery(event.target.value)} placeholder="Search a channel or paste its ID" /></label>
-          <div className="table-scroll"><table><thead><tr><th>Channel</th><th>Messages</th><th>Voice</th></tr></thead><tbody>
-            {(channelQuery ? channels : channels.slice(0, 100)).map((channel) => <tr key={channel.id}><td>#{channel.name || channel.id}<small>{channel.id}</small></td><td>{channel.messages.toLocaleString()}</td><td>{hours(channel.voiceSeconds)}</td></tr>)}
-          </tbody></table></div>{!channels.length && <p className="empty-state">No matching channel activity for this period.</p>}</div>
+          <p className="stats-member-note">Includes discovered channels and threads with 0 activity. Older history is still importing. Showing the top 100 until you search.</p>
+          <div className="table-scroll"><table><thead><tr><th>Channel</th><th>Messages</th><th>Voice</th><th>Older history</th></tr></thead><tbody>
+            {(channelQuery ? channels : channels.slice(0, 100)).map((channel) => <tr key={channel.id}><td>#{channel.name || channel.id}<small>{channel.id}</small></td><td>{channel.messages.toLocaleString()}</td><td>{hours(channel.voiceSeconds)}</td><td>{({ complete: "Imported", running: "Importing", pending: "Queued", error: "Unavailable", "live-only": "Live only" } as const)[channel.historyStatus]}</td></tr>)}
+          </tbody></table></div>{!channels.length && <p className="empty-state">No matching channel was discovered or recorded.</p>}</div>
       </div>
       <div className="starplayer-panel"><div className="panel-head"><h3>Daily activity</h3><span>{summary.daily.length} days</span></div>
         <div className="table-scroll"><table><thead><tr><th>Date</th><th>Messages</th><th>Voice</th></tr></thead><tbody>

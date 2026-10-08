@@ -1,6 +1,6 @@
 import { defaultConfig, localDateAt } from "@/lib/checkin/core";
 import { requireSameOrigin } from "@/lib/request";
-import { roleMemberPerformance, shiftDate, statsSummaryRange, validStatsDate, validateStatsConfig, type StatsConfig } from "@/lib/stats/core";
+import { channelDrilldownRows, roleMemberPerformance, shiftDate, statsSummaryRange, validStatsDate, validateStatsConfig, type StatsConfig } from "@/lib/stats/core";
 import { StatsSheetsStore, type StatsDashboardSnapshot } from "@/lib/stats/sheets";
 
 export const dynamic = "force-dynamic";
@@ -40,8 +40,10 @@ export async function GET(request: Request) {
     const memberRoleId = params.get("memberRoleId") || "";
     if (memberRoleId && !/^\d{17,20}$/.test(memberRoleId)) throw new Error("Choose a valid Discord role.");
     const periodSummary = statsSummaryRange(rows, start, end, { history, progress, plan });
+    const summary = roleId ? statsSummaryRange(rows, start, end, { history, progress, plan, roleId }) : periodSummary;
     return Response.json({
-      summary: roleId ? statsSummaryRange(rows, start, end, { history, progress, plan, roleId }) : periodSummary,
+      summary,
+      channelDrilldown: channelDrilldownRows(summary, progress),
       memberRoleId,
       memberRoster: memberRoleId ? roleMemberPerformance(rows, history, progress, plan, memberRoleId, periodSummary.members) : [],
       config, lastReport, roles, historyPlan: plan,

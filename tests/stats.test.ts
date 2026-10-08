@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { reportDue, roleMemberPerformance, statsSummary, statsSummaryRange, type StatDelta } from "../lib/stats/core";
+import { channelDrilldownRows, reportDue, roleMemberPerformance, statsSummary, statsSummaryRange, type StatDelta } from "../lib/stats/core";
 import { dateBoundarySnowflake } from "../checkin-worker/history";
 
 const row: StatDelta = {
@@ -19,6 +19,18 @@ describe("Discord server statistics", () => {
     expect(summary.activeMembers).toBe(2);
     expect(summary.daily.find((day) => day.date === "2026-10-07")).toMatchObject({ messages: 3, voiceSeconds: 5_400 });
     expect(summary.channels).toHaveLength(2);
+  });
+
+  it("keeps idle discovered channels searchable without adding activity to totals", () => {
+    const summary = statsSummaryRange([row], "2026-10-07", "2026-10-07");
+    const progress = [{ channelId: "456", channelName: "general", before: "", coveredAfter: "2026-10-07", status: "running" as const, error: "" },
+      { channelId: "idle", channelName: "quiet-channel", before: "", coveredAfter: "2026-10-07", status: "pending" as const, error: "" }];
+    const drilldown = channelDrilldownRows(summary, progress);
+    expect(drilldown).toMatchObject([
+      { id: "456", messages: 3, voiceSeconds: 3_600, historyStatus: "running" },
+      { id: "idle", name: "quiet-channel", messages: 0, voiceSeconds: 0, historyStatus: "pending" },
+    ]);
+    expect(drilldown.reduce((total, channel) => total + channel.messages, 0)).toBe(summary.messages);
   });
 
   it("uses completed history in place of overlapping live messages while retaining live voice time", () => {
