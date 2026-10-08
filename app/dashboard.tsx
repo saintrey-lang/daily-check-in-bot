@@ -5,8 +5,9 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { formatResetTime, localDateAt, type CheckinConfig, type CheckinWindow, type EmbedTemplate } from "@/lib/checkin/core";
 import StarplayerDashboard from "./starplayer-dashboard";
 import ServerStatsDashboard from "./server-stats-dashboard";
+import StaffCornerDashboard from "./staff-corner-dashboard";
 
-type DashboardTab = "checkin" | "starplayer" | "stats";
+type DashboardTab = "checkin" | "starplayer" | "staff" | "stats";
 
 type Status = {
   config: CheckinConfig; window: CheckinWindow | null;
@@ -101,7 +102,7 @@ export default function Dashboard() {
   }, [refresh, tab]);
 
   useEffect(() => {
-    const fromHash = () => setTab(window.location.hash === "#starplayer" ? "starplayer" : window.location.hash === "#server-stats" ? "stats" : "checkin");
+    const fromHash = () => setTab(window.location.hash === "#starplayer" ? "starplayer" : window.location.hash === "#staff-corner" ? "staff" : window.location.hash === "#server-stats" ? "stats" : "checkin");
     fromHash();
     window.addEventListener("hashchange", fromHash);
     return () => window.removeEventListener("hashchange", fromHash);
@@ -109,7 +110,7 @@ export default function Dashboard() {
 
   function selectTab(next: DashboardTab) {
     setTab(next);
-    window.history.replaceState(null, "", next === "starplayer" ? "#starplayer" : next === "stats" ? "#server-stats" : "#daily-check-in");
+    window.history.replaceState(null, "", next === "starplayer" ? "#starplayer" : next === "staff" ? "#staff-corner" : next === "stats" ? "#server-stats" : "#daily-check-in");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -172,9 +173,11 @@ export default function Dashboard() {
       <div className="dashboard-tabs" role="tablist" aria-label="Dashboard sections">
         <button id="checkin-tab" type="button" role="tab" aria-controls="checkin-panel" aria-selected={tab === "checkin"} tabIndex={tab === "checkin" ? 0 : -1} onClick={() => selectTab("checkin")} onKeyDown={(event) => { if (event.key === "ArrowRight") { selectTab("starplayer"); document.getElementById("starplayer-tab")?.focus(); } }}>DAILY CHECK-IN</button>
         <span className="tab-divider" aria-hidden="true">|</span>
-        <button id="starplayer-tab" type="button" role="tab" aria-controls="starplayer-panel" aria-selected={tab === "starplayer"} tabIndex={tab === "starplayer" ? 0 : -1} onClick={() => selectTab("starplayer")} onKeyDown={(event) => { if (event.key === "ArrowLeft") { selectTab("checkin"); document.getElementById("checkin-tab")?.focus(); } if (event.key === "ArrowRight") { selectTab("stats"); document.getElementById("stats-tab")?.focus(); } }}>STARPLAYER</button>
+        <button id="starplayer-tab" type="button" role="tab" aria-controls="starplayer-panel" aria-selected={tab === "starplayer"} tabIndex={tab === "starplayer" ? 0 : -1} onClick={() => selectTab("starplayer")} onKeyDown={(event) => { if (event.key === "ArrowLeft") { selectTab("checkin"); document.getElementById("checkin-tab")?.focus(); } if (event.key === "ArrowRight") { selectTab("staff"); document.getElementById("staff-tab")?.focus(); } }}>STARPLAYER</button>
         <span className="tab-divider" aria-hidden="true">|</span>
-        <button id="stats-tab" type="button" role="tab" aria-controls="stats-panel" aria-selected={tab === "stats"} tabIndex={tab === "stats" ? 0 : -1} onClick={() => selectTab("stats")} onKeyDown={(event) => { if (event.key === "ArrowLeft") { selectTab("starplayer"); document.getElementById("starplayer-tab")?.focus(); } }}>SERVER STATS</button>
+        <button id="staff-tab" type="button" role="tab" aria-controls="staff-panel" aria-selected={tab === "staff"} tabIndex={tab === "staff" ? 0 : -1} onClick={() => selectTab("staff")} onKeyDown={(event) => { if (event.key === "ArrowLeft") { selectTab("starplayer"); document.getElementById("starplayer-tab")?.focus(); } if (event.key === "ArrowRight") { selectTab("stats"); document.getElementById("stats-tab")?.focus(); } }}>STAFF CORNER</button>
+        <span className="tab-divider" aria-hidden="true">|</span>
+        <button id="stats-tab" type="button" role="tab" aria-controls="stats-panel" aria-selected={tab === "stats"} tabIndex={tab === "stats" ? 0 : -1} onClick={() => selectTab("stats")} onKeyDown={(event) => { if (event.key === "ArrowLeft") { selectTab("staff"); document.getElementById("staff-tab")?.focus(); } }}>SERVER STATS</button>
       </div>
       <span className="topbar-right">EVENT CONTROL CENTER <span className="avatar">GS</span></span>
     </header>
@@ -220,6 +223,7 @@ export default function Dashboard() {
         </>}
         </section>
         <section id="starplayer-panel" role="tabpanel" aria-labelledby="starplayer-tab" hidden={tab !== "starplayer"}>{tab === "starplayer" && <StarplayerDashboard />}</section>
+        <section id="staff-panel" role="tabpanel" aria-labelledby="staff-tab" hidden={tab !== "staff"}>{tab === "staff" && <StaffCornerDashboard />}</section>
         <section id="stats-panel" role="tabpanel" aria-labelledby="stats-tab" hidden={tab !== "stats"}>{tab === "stats" && <ServerStatsDashboard />}</section>
       </div>
     </main>

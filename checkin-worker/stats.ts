@@ -4,6 +4,7 @@ import { localDateAt } from "../lib/checkin/core";
 import { reportDue, shiftDate, statsSummaryRange, type StatDelta } from "../lib/stats/core";
 import { StatsSheetsStore } from "../lib/stats/sheets";
 import { attachHistory } from "./history";
+import { attachStaffRoster } from "./staff";
 
 type Bucket = Omit<StatDelta, "id" | "recordedAt">;
 type VoiceSession = { userId: string; displayName: string; channelId: string; channelName: string; since: number; roleIds: string[]; isBot: boolean };
@@ -20,6 +21,7 @@ export function attachStats(client: Client, guildId: string, sheetId: string): v
   let statsReady = false;
   let settingUp = false;
   let historyStarted = false;
+  let staffStarted = false;
   const timeZone = process.env.CHECKIN_TIMEZONE?.trim() || "Asia/Manila";
 
   async function ensureSetup(): Promise<void> {
@@ -28,6 +30,7 @@ export function attachStats(client: Client, guildId: string, sheetId: string): v
     try {
       await store.setup(); statsReady = true;
       if (!historyStarted) { historyStarted = true; attachHistory(client, guildId, store, timeZone); }
+      if (!staffStarted) { staffStarted = true; attachStaffRoster(client, guildId, store, timeZone); }
     }
     catch (error) { console.error("Could not set up server statistics; will retry without stopping check-ins.", error); }
     finally { settingUp = false; }
