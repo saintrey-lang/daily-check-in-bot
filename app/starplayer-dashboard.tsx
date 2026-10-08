@@ -67,7 +67,7 @@ export default function StarplayerDashboard() {
           {summary.players.map((player) => <tr key={player.userId}><td><strong>{player.displayName || player.username}</strong><small>@{player.username}</small></td>
             {STARPLAYER_CATEGORIES.map((category) => {
               const count = player.categoryCounts[category.id];
-              return <td key={category.id}><span className={`task-mark ${count ? "done" : ""}`}>{count ? `${count} Submission Finish` : "—"}</span></td>;
+              return <td key={category.id}><span className={`task-mark ${count ? "done" : ""}`}>{count ? `${count} ${count === 1 ? "Submission" : "Submissions"} Finished` : "—"}</span></td>;
             })}
             <td>{player.submissions}</td></tr>)}
         </tbody></table></div> : <p className="empty-state">No submissions yet. Players can use the pinned category dropdown in the submission channel.</p>}
