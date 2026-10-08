@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { reportDue, statsSummary, statsSummaryRange, type StatDelta } from "../lib/stats/core";
+import { reportDue, roleMemberPerformance, statsSummary, statsSummaryRange, type StatDelta } from "../lib/stats/core";
 import { dateBoundarySnowflake } from "../checkin-worker/history";
 
 const row: StatDelta = {
@@ -40,6 +40,25 @@ describe("Discord server statistics", () => {
     expect(statsSummaryRange([row], "2026-10-07", "2026-10-07").daily).toHaveLength(1);
     const timestamp = Number(BigInt(dateBoundarySnowflake("2026-08-01", "Asia/Manila")) >> 22n) + 1_420_070_400_000;
     expect(new Date(timestamp).toISOString()).toBe("2026-07-31T16:00:00.000Z");
+  });
+
+  it("lists observed role players who were idle in the selected dates, excluding bots and incomplete history", () => {
+    const roleId = "111111111111111111";
+    const old = { ...row, id: "old", date: "2026-08-15", userId: "old-player", displayName: "Idle player", roleIds: [roleId] };
+    const active = { ...row, id: "active", userId: "active-player", displayName: "Active player", messages: 5, roleIds: [roleId] };
+    const untracked = { ...row, id: "different", userId: "different-player", roleIds: ["222222222222222222"] };
+    const bot = { ...row, id: "bot", userId: "bot-user", isBot: true, roleIds: [roleId] };
+    const imported = { ...old, id: "history:456:2026-08-15:old-player" };
+    const plan = { from: "2026-08-01", until: "2026-10-08" };
+    const period = statsSummaryRange([active, untracked, bot], "2026-10-07", "2026-10-07").members;
+    expect(roleMemberPerformance([active, untracked, bot], [imported], [], plan, roleId, period).map((member) => member.id))
+      .toEqual(["active-player"]);
+    const progress = [{ channelId: "456", channelName: "general", before: "", coveredAfter: "2026-08-14", status: "running" as const, error: "" }];
+    expect(roleMemberPerformance([active, untracked, bot], [imported], progress, plan, roleId, period))
+      .toMatchObject([
+        { id: "active-player", messages: 5, voiceSeconds: 3_600 },
+        { id: "old-player", name: "Idle player", messages: 0, voiceSeconds: 0 },
+      ]);
   });
 
   it("posts the prior complete Manila day after the selected daily time", () => {

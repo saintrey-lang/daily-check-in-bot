@@ -1,6 +1,6 @@
 import { defaultConfig, localDateAt } from "@/lib/checkin/core";
 import { requireSameOrigin } from "@/lib/request";
-import { shiftDate, statsSummaryRange, validStatsDate, validateStatsConfig, type StatsConfig } from "@/lib/stats/core";
+import { roleMemberPerformance, shiftDate, statsSummaryRange, validStatsDate, validateStatsConfig, type StatsConfig } from "@/lib/stats/core";
 import { StatsSheetsStore } from "@/lib/stats/sheets";
 
 export const dynamic = "force-dynamic";
@@ -25,8 +25,13 @@ export async function GET(request: Request) {
     const start = period === "custom" ? (params.get("start") || end) : shiftDate(end, period === "seven" ? -6 : -29);
     const roleId = params.get("roleId") || "";
     if (roleId && !/^\d{17,20}$/.test(roleId)) throw new Error("Choose a valid Discord role.");
+    const memberRoleId = params.get("memberRoleId") || "";
+    if (memberRoleId && !/^\d{17,20}$/.test(memberRoleId)) throw new Error("Choose a valid Discord role.");
+    const periodSummary = statsSummaryRange(rows, start, end, { history, progress, plan });
     return Response.json({
-      summary: statsSummaryRange(rows, start, end, { history, progress, plan, roleId }),
+      summary: roleId ? statsSummaryRange(rows, start, end, { history, progress, plan, roleId }) : periodSummary,
+      memberRoleId,
+      memberRoster: memberRoleId ? roleMemberPerformance(rows, history, progress, plan, memberRoleId, periodSummary.members) : [],
       config, lastReport, roles, historyPlan: plan,
       historyProgress: { total: progress.length, complete: progress.filter((item) => item.status === "complete").length,
         errors: progress.filter((item) => item.status === "error").map(({ channelName, error }) => ({ channelName, error })) },

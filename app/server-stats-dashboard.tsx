@@ -6,6 +6,7 @@ import { shiftDate, type StatsConfig, type StatsRole, type StatsSummary } from "
 type StatsResponse = {
   summary: StatsSummary; config: StatsConfig; lastReport: string; sheetUrl: string; today: string;
   roles: StatsRole[]; historyPlan: { from: string; until: string } | null;
+  memberRoleId: string; memberRoster: StatsSummary["members"];
   historyProgress: { total: number; complete: number; errors: Array<{ channelName: string; error: string }> };
 };
 
@@ -19,6 +20,7 @@ export default function ServerStatsDashboard() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [roleId, setRoleId] = useState("");
+  const [memberRoleId, setMemberRoleId] = useState("");
   const [memberQuery, setMemberQuery] = useState("");
   const [channelQuery, setChannelQuery] = useState("");
   const [error, setError] = useState("");
@@ -32,6 +34,7 @@ export default function ServerStatsDashboard() {
       if (customEnd) params.set("end", customEnd);
     } else if (asOf) params.set("end", asOf);
     if (roleId) params.set("roleId", roleId);
+    if (memberRoleId) params.set("memberRoleId", memberRoleId);
     const response = await fetch(`/api/stats?${params}`, { cache: "no-store" });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Could not load server statistics.");
@@ -41,7 +44,7 @@ export default function ServerStatsDashboard() {
     setCustomStart((current) => current || (result as StatsResponse).today);
     setCustomEnd((current) => current || (result as StatsResponse).today);
     setError("");
-  }, [period, asOf, customStart, customEnd, roleId]);
+  }, [period, asOf, customStart, customEnd, roleId, memberRoleId]);
 
   useEffect(() => {
     void refresh().catch((caught) => setError(caught instanceof Error ? caught.message : "Could not load server statistics."));
@@ -65,7 +68,8 @@ export default function ServerStatsDashboard() {
   }
 
   const summary = data?.summary;
-  const members = summary?.members.filter((member) => `${member.name} ${member.id}`.toLowerCase().includes(memberQuery.trim().toLowerCase())) ?? [];
+  const memberSource = memberRoleId ? (data?.memberRoleId === memberRoleId ? data.memberRoster : []) : summary?.members ?? [];
+  const members = memberSource.filter((member) => `${member.name} ${member.id}`.toLowerCase().includes(memberQuery.trim().toLowerCase()));
   const channels = summary?.channels.filter((channel) => `${channel.name} ${channel.id}`.toLowerCase().includes(channelQuery.trim().toLowerCase())) ?? [];
   return <section className="server-stats">
     <div className="section-head starplayer-heading"><div>
@@ -106,10 +110,17 @@ export default function ServerStatsDashboard() {
       </div>
       <div className="stats-tables">
         <div className="starplayer-panel"><div className="panel-head"><h3>Member drilldown</h3><span>{members.length} results</span></div>
+          <label className="stats-search">Filter players by role
+            <select value={memberRoleId} onChange={(event) => setMemberRoleId(event.target.value)}>
+              <option value="">All active accounts</option>
+              {data.roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
+            </select>
+          </label>
           <label className="stats-search">Search member name or Discord ID<input type="search" value={memberQuery} onChange={(event) => setMemberQuery(event.target.value)} placeholder="Search a user or paste their ID" /></label>
+          {memberRoleId && <p className="stats-member-note">Shows players observed with this role, including 0 for those idle during these dates. Members the bot has never observed are not in this list.</p>}
           <div className="table-scroll"><table><thead><tr><th>Member</th><th>Messages</th><th>Voice</th></tr></thead><tbody>
-            {(memberQuery ? members : members.slice(0, 100)).map((member) => <tr key={member.id}><td>{member.name || member.id}{member.isBot && <b className="bot-label">BOT</b>}<small>{member.id}</small></td><td>{member.messages.toLocaleString()}</td><td>{hours(member.voiceSeconds)}</td></tr>)}
-          </tbody></table></div>{!members.length && <p className="empty-state">No matching activity for this period.</p>}</div>
+            {(memberRoleId || memberQuery ? members : members.slice(0, 100)).map((member) => <tr key={member.id}><td>{member.name || member.id}{member.isBot && <b className="bot-label">BOT</b>}<small>{member.id}</small></td><td>{member.messages.toLocaleString()}</td><td>{hours(member.voiceSeconds)}</td></tr>)}
+          </tbody></table></div>{!members.length && <p className="empty-state">{memberRoleId ? "No tracked players match this role and search." : "No matching activity for this period."}</p>}</div>
         <div className="starplayer-panel"><div className="panel-head"><h3>Channel drilldown</h3><span>{channels.length} results</span></div>
           <label className="stats-search">Search channel name or ID<input type="search" value={channelQuery} onChange={(event) => setChannelQuery(event.target.value)} placeholder="Search a channel or paste its ID" /></label>
           <div className="table-scroll"><table><thead><tr><th>Channel</th><th>Messages</th><th>Voice</th></tr></thead><tbody>

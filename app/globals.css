@@ -243,13 +243,14 @@ code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 .stats-period span { margin-left: auto; color: var(--muted); font-size: 11px; }
 .stats-filters { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin: 14px 0 20px; }
 .stats-filters .field-label { margin: 0; min-width: 165px; }
-.stats-filters input, .stats-filters select, .stats-search input {
+.stats-filters input, .stats-filters select, .stats-search input, .stats-search select {
   display: block; width: 100%; margin-top: 8px; padding: 10px 11px; border: 1px solid #5b6998;
   border-radius: 8px; background: #0f1733; color: #f2f8ff; font: inherit;
 }
 .stats-range { margin-left: auto; padding-bottom: 11px; color: var(--muted); font-size: 11px; }
 .stats-history { margin: 10px 0 20px; padding: 13px 15px; border: 1px solid #6575a777; border-radius: 10px; background: #182146ed; color: #d3e4f7; font-size: 11px; line-height: 1.6; }
 .stats-search { display: block; padding: 0 18px 13px; color: var(--muted); font-size: 11px; }
+.stats-member-note { margin: 0 18px 12px; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .server-stats td small { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; }
 .bot-label { display: inline-block; margin-left: 7px; padding: 2px 5px; border-radius: 4px; background: #b9f2e93b; color: var(--mint); font-size: 9px; }
 .stats-tables { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px; }

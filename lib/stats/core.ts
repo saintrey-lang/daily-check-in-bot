@@ -87,6 +87,32 @@ export function statsSummaryRange(
   };
 }
 
+/** Players whose selected role was observed in tracked activity, with zeros for an idle period. */
+export function roleMemberPerformance(
+  rows: StatDelta[], history: StatDelta[], progress: HistoryProgress[], plan: HistoryPlan | null,
+  roleId: string, periodMembers: StatsSummary["members"],
+): StatsSummary["members"] {
+  const covered = new Map(progress.map((item) => [item.channelId, item.coveredAfter]));
+  const observed = new Map<string, { id: string; name: string; recordedAt: string }>();
+  for (const [source, entries] of [["live", rows], ["history", history]] as const) {
+    for (const row of entries) {
+      if (row.isBot || !row.userId || !(row.roleIds ?? []).includes(roleId)) continue;
+      if (source === "history" && (!plan || row.date < plan.from || row.date >= plan.until ||
+        !covered.get(row.channelId) || row.date <= covered.get(row.channelId)!)) continue;
+      const previous = observed.get(row.userId);
+      if (!previous || row.recordedAt > previous.recordedAt) {
+        observed.set(row.userId, { id: row.userId, name: row.displayName, recordedAt: row.recordedAt });
+      }
+    }
+  }
+  const performance = new Map(periodMembers.map((member) => [member.id, member]));
+  return [...observed.values()].map((member) => {
+    const current = performance.get(member.id);
+    return { id: member.id, name: current?.name || member.name, messages: current?.messages ?? 0,
+      voiceSeconds: current?.voiceSeconds ?? 0, isBot: false };
+  }).sort((a, b) => b.messages - a.messages || b.voiceSeconds - a.voiceSeconds || a.name.localeCompare(b.name));
+}
+
 export function validateStatsConfig(input: StatsConfig): StatsConfig {
   if (input.channelId && !/^\d{17,20}$/.test(input.channelId)) throw new Error("Enter a valid Discord report channel ID.");
   if (input.frequency !== "daily" && input.frequency !== "weekly") throw new Error("Choose daily or weekly reports.");
