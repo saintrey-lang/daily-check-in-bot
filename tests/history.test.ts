@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dateBoundarySnowflake, importChannelHistory, rewindCompletedHistory } from "../checkin-worker/history";
+import { dateBoundarySnowflake, historyQueue, importChannelHistory, rewindCompletedHistory } from "../checkin-worker/history";
 import { statsSummaryRange, type HistoryProgress, type StatDelta } from "../lib/stats/core";
 
 const day = (id: string, date: string, author: string) => ({
@@ -9,6 +9,29 @@ const day = (id: string, date: string, author: string) => ({
 });
 
 describe("server history import", () => {
+  it("prioritizes a requested month and resumes the remaining older history later", async () => {
+    const messages = [day("400", "2026-10-05", "member"), day("300", "2026-09-20", "member"),
+      day("200", "2026-09-01", "member"), day("100", "2026-08-15", "member")];
+    const rows: StatDelta[] = [];
+    const channel = { id: "priority", name: "sembang", messages: {
+      fetch: async ({ before }: { before: string }) => new Map(messages.filter((message) => BigInt(message.id) < BigInt(before))
+        .map((message) => [message.id, message])),
+    } } as unknown as Parameters<typeof importChannelHistory>[0];
+    const state: HistoryProgress = { channelId: "priority", channelName: "sembang", before: dateBoundarySnowflake("2026-10-08", "Asia/Manila"),
+      coveredAfter: "2026-10-08", status: "pending", error: "" };
+    const plan = { from: "2026-08-01", until: "2026-10-08" };
+    const store = { saveHistoryProgress: async () => {}, appendHistory: async (added: StatDelta[]) => { rows.push(...added); } } as unknown as Parameters<typeof importChannelHistory>[3];
+    const other = { ...state, channelId: "other" };
+    expect(historyQueue([other, state], state.channelId, "2026-09-01")[0]).toBe(state);
+    await importChannelHistory(channel, state, plan, store, "Asia/Manila", {} as Parameters<typeof importChannelHistory>[5], new Map(), 0, "2026-09-01");
+    expect(state).toMatchObject({ status: "pending", coveredAfter: "2026-08-31", before: "200" });
+    expect(statsSummaryRange([], "2026-09-01", "2026-09-30", { history: rows, progress: [state], plan }).messages).toBe(2);
+    expect(historyQueue([other, state], state.channelId, "2026-09-01")[0]).toBe(other);
+    await importChannelHistory(channel, state, plan, store, "Asia/Manila", {} as Parameters<typeof importChannelHistory>[5], new Map(), 0);
+    expect(state.status).toBe("complete");
+    expect(statsSummaryRange([], "2026-08-01", "2026-09-30", { history: rows, progress: [state], plan }).messages).toBe(3);
+  });
+
   it("extends completed channels before the previous cutoff without reopening active imports", () => {
     const completed: HistoryProgress = { channelId: "old", channelName: "old", before: "previous", coveredAfter: "2026-07-31", status: "complete", error: "" };
     const running: HistoryProgress = { ...completed, channelId: "active", status: "running", coveredAfter: "2026-09-01" };

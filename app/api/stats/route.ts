@@ -43,7 +43,7 @@ export async function GET(request: Request) {
     const summary = roleId ? statsSummaryRange(rows, start, end, { history, progress, plan, roleId }) : periodSummary;
     return Response.json({
       summary,
-      channelDrilldown: channelDrilldownRows(summary, progress),
+      channelDrilldown: channelDrilldownRows(summary, progress, plan),
       memberRoleId,
       memberRoster: memberRoleId ? roleMemberPerformance(rows, history, progress, plan, memberRoleId, periodSummary.members) : [],
       config, lastReport, roles, historyPlan: plan,

@@ -5,6 +5,13 @@ import { StatsSheetsStore } from "../lib/stats/sheets";
 
 type HistoryChannel = TextChannel | NewsChannel | ThreadChannel | VoiceChannel | StageChannel;
 const DISCORD_EPOCH = 1_420_070_400_000;
+// Import the requested September channel before the longer server-wide queue.
+const priorityHistory = { channelId: "1304081867212980264", through: "2026-09-01" };
+
+export function historyQueue(states: HistoryProgress[], channelId: string, through: string): HistoryProgress[] {
+  return [...states].sort((a, b) => Number(b.channelId === channelId && b.coveredAfter >= through && b.status !== "complete") -
+    Number(a.channelId === channelId && a.coveredAfter >= through && a.status !== "complete"));
+}
 
 // Convert the dashboard's local midnight to a Discord snowflake boundary.
 export function dateBoundarySnowflake(date: string, timeZone: string): string {
@@ -60,7 +67,7 @@ function recordMessage(message: Message, channel: HistoryChannel, date: string, 
 
 export async function importChannelHistory(
   channel: HistoryChannel, state: HistoryProgress, plan: HistoryPlan, store: StatsSheetsStore, timeZone: string,
-  guild: Guild, memberCache: MemberCache = new Map(), paceMs = 4_000,
+  guild: Guild, memberCache: MemberCache = new Map(), paceMs = 4_000, stopAfter?: string,
 ): Promise<void> {
   if (state.status === "complete") return;
   let before = state.before || dateBoundarySnowflake(plan.until, timeZone);
@@ -103,6 +110,11 @@ export async function importChannelHistory(
         if (date >= plan.until) { before = message.id; continue; }
         if (currentDay && date !== currentDay) {
           await completeDay();
+          if (stopAfter && state.coveredAfter < stopAfter) {
+            state.status = "pending";
+            await store.saveHistoryProgress(state);
+            return;
+          }
           currentDay = "";
         }
         if (date < plan.from) {
@@ -207,7 +219,7 @@ export function attachHistory(client: Client, guildId: string, store: StatsSheet
       }));
       await store.addHistoryChannels(missing);
       const memberCache: MemberCache = new Map();
-      for (const state of [...existing, ...missing]) {
+      for (const state of historyQueue([...existing, ...missing], priorityHistory.channelId, priorityHistory.through)) {
         if (state.status === "complete") continue;
         const channel = accessible.get(state.channelId);
         if (!channel) {
@@ -217,7 +229,8 @@ export function attachHistory(client: Client, guildId: string, store: StatsSheet
           continue;
         }
         try {
-          await importChannelHistory(channel, state, plan, store, timeZone, guild, memberCache);
+          const stopAfter = state.channelId === priorityHistory.channelId && state.coveredAfter >= priorityHistory.through ? priorityHistory.through : undefined;
+          await importChannelHistory(channel, state, plan, store, timeZone, guild, memberCache, 4_000, stopAfter);
         } catch (error) {
           console.error(`Could not backfill channel ${state.channelId}; remaining channels will continue.`, error);
         }

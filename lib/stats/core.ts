@@ -20,6 +20,7 @@ export type StatsSummary = {
 };
 export type ChannelDrilldownRow = StatsSummary["channels"][number] & {
   historyStatus: HistoryProgress["status"] | "live-only";
+  historyIncomplete: boolean;
 };
 
 export function shiftDate(date: string, days: number): string {
@@ -91,17 +92,18 @@ export function statsSummaryRange(
 }
 
 /** Keep the channel inventory visible even when a channel is idle in the selected range. */
-export function channelDrilldownRows(summary: StatsSummary, progress: HistoryProgress[]): ChannelDrilldownRow[] {
+export function channelDrilldownRows(summary: StatsSummary, progress: HistoryProgress[], plan: HistoryPlan | null): ChannelDrilldownRow[] {
   const activity = new Map(summary.channels.map((channel) => [channel.id, channel]));
   const listed = new Set<string>();
   const channels: ChannelDrilldownRow[] = progress.map((state) => {
     listed.add(state.channelId);
     const current = activity.get(state.channelId);
     return { id: state.channelId, name: current?.name || state.channelName || state.channelId,
-      messages: current?.messages ?? 0, voiceSeconds: current?.voiceSeconds ?? 0, historyStatus: state.status };
+      messages: current?.messages ?? 0, voiceSeconds: current?.voiceSeconds ?? 0, historyStatus: state.status,
+      historyIncomplete: !!plan && summary.start < plan.until && state.coveredAfter >= summary.start };
   });
   for (const channel of summary.channels) {
-    if (!listed.has(channel.id)) channels.push({ ...channel, historyStatus: "live-only" });
+    if (!listed.has(channel.id)) channels.push({ ...channel, historyStatus: "live-only", historyIncomplete: false });
   }
   return channels.sort((a, b) => b.messages - a.messages || b.voiceSeconds - a.voiceSeconds || a.name.localeCompare(b.name));
 }

@@ -25,12 +25,25 @@ describe("Discord server statistics", () => {
     const summary = statsSummaryRange([row], "2026-10-07", "2026-10-07");
     const progress = [{ channelId: "456", channelName: "general", before: "", coveredAfter: "2026-10-07", status: "running" as const, error: "" },
       { channelId: "idle", channelName: "quiet-channel", before: "", coveredAfter: "2026-10-07", status: "pending" as const, error: "" }];
-    const drilldown = channelDrilldownRows(summary, progress);
+    const drilldown = channelDrilldownRows(summary, progress, { from: "2024-10-09", until: "2026-10-08" });
     expect(drilldown).toMatchObject([
-      { id: "456", messages: 3, voiceSeconds: 3_600, historyStatus: "running" },
-      { id: "idle", name: "quiet-channel", messages: 0, voiceSeconds: 0, historyStatus: "pending" },
+      { id: "456", messages: 3, voiceSeconds: 3_600, historyStatus: "running", historyIncomplete: true },
+      { id: "idle", name: "quiet-channel", messages: 0, voiceSeconds: 0, historyStatus: "pending", historyIncomplete: true },
     ]);
     expect(drilldown.reduce((total, channel) => total + channel.messages, 0)).toBe(summary.messages);
+  });
+
+  it("distinguishes a queued September import from a fully covered September channel", () => {
+    const plan = { from: "2024-10-09", until: "2026-10-08" };
+    const summary = statsSummaryRange([], "2026-09-01", "2026-09-30");
+    const progress = [
+      { channelId: "queued", channelName: "sembang", before: "", coveredAfter: plan.until, status: "pending" as const, error: "" },
+      { channelId: "covered", channelName: "quiet", before: "", coveredAfter: "2026-08-31", status: "pending" as const, error: "" },
+    ];
+    expect(channelDrilldownRows(summary, progress, plan)).toMatchObject([
+      { id: "covered", messages: 0, historyIncomplete: false },
+      { id: "queued", messages: 0, historyIncomplete: true },
+    ]);
   });
 
   it("uses completed history in place of overlapping live messages while retaining live voice time", () => {

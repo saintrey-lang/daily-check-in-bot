@@ -125,9 +125,9 @@ export default function ServerStatsDashboard() {
           </tbody></table></div>{!members.length && <p className="empty-state">{memberRoleId ? "No tracked players match this role and search." : "No matching activity for this period."}</p>}</div>
         <div className="starplayer-panel"><div className="panel-head"><h3>Channel drilldown</h3><span>{channels.length} results</span></div>
           <label className="stats-search">Search channel name or ID<input type="search" value={channelQuery} onChange={(event) => setChannelQuery(event.target.value)} placeholder="Search a channel or paste its ID" /></label>
-          <p className="stats-member-note">Includes discovered channels and threads with 0 activity. Older history is still importing. Showing the top 100 until you search.</p>
+          <p className="stats-member-note">A dash means this date range is not fully imported. A plus means the count may grow. Showing the top 100 until you search.</p>
           <div className="table-scroll"><table><thead><tr><th>Channel</th><th>Messages</th><th>Voice</th><th>Older history</th></tr></thead><tbody>
-            {(channelQuery ? channels : channels.slice(0, 100)).map((channel) => <tr key={channel.id}><td>#{channel.name || channel.id}<small>{channel.id}</small></td><td>{channel.messages.toLocaleString()}</td><td>{hours(channel.voiceSeconds)}</td><td>{({ complete: "Imported", running: "Importing", pending: "Queued", error: "Unavailable", "live-only": "Live only" } as const)[channel.historyStatus]}</td></tr>)}
+            {(channelQuery ? channels : channels.slice(0, 100)).map((channel) => <tr key={channel.id}><td>#{channel.name || channel.id}<small>{channel.id}</small></td><td>{channel.historyIncomplete ? (channel.messages ? `${channel.messages.toLocaleString()}+` : "—") : channel.messages.toLocaleString()}</td><td>{hours(channel.voiceSeconds)}</td><td>{({ complete: "Imported", running: "Importing", pending: "Queued", error: "Unavailable", "live-only": "Live only" } as const)[channel.historyStatus]}</td></tr>)}
           </tbody></table></div>{!channels.length && <p className="empty-state">No matching channel was discovered or recorded.</p>}</div>
       </div>
       <div className="starplayer-panel"><div className="panel-head"><h3>Daily activity</h3><span>{summary.daily.length} days</span></div>
