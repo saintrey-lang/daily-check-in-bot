@@ -5,7 +5,7 @@ export type StatDelta = {
   channelId: string; channelName: string; messages: number; voiceSeconds: number;
   recordedAt: string;
 };
-export type StatsConfig = { channelId: string; frequency: "daily" | "weekly"; time: string; timeZone: string };
+export type StatsConfig = { channelId: string; frequency: "daily" | "weekly"; time: string; timeZone: string; enabledAt?: string };
 export type StatsSummary = {
   start: string; end: string; messages: number; voiceSeconds: number; activeMembers: number;
   daily: Array<{ date: string; messages: number; voiceSeconds: number }>;
@@ -58,6 +58,7 @@ export function validateStatsConfig(input: StatsConfig): StatsConfig {
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(input.time)) throw new Error("Enter a report time in HH:MM format.");
   try { new Intl.DateTimeFormat("en-US", { timeZone: input.timeZone }); }
   catch { throw new Error("Enter a valid report timezone."); }
+  if (input.enabledAt && !Number.isFinite(Date.parse(input.enabledAt))) throw new Error("Invalid report start time.");
   return input;
 }
 
@@ -68,12 +69,25 @@ export function reportDue(now: Date, config: StatsConfig): { key: string; end: s
   const value = (part: string) => parts.find((entry) => entry.type === part)?.value ?? "";
   const date = localDateAt(now, config.timeZone);
   const time = `${value("hour")}:${value("minute")}`;
+  const eligible = (keyDate: string) => {
+    if (!config.enabledAt) return true;
+    const enabled = new Date(config.enabledAt);
+    const enabledDate = localDateAt(enabled, config.timeZone);
+    if (keyDate !== enabledDate) return keyDate > enabledDate;
+    const enabledParts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: config.timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    }).formatToParts(enabled);
+    const enabledTime = `${enabledParts.find((part) => part.type === "hour")?.value}:${enabledParts.find((part) => part.type === "minute")?.value}`;
+    return enabledTime < config.time;
+  };
   if (config.frequency === "daily") {
     const key = time >= config.time ? date : shiftDate(date, -1);
+    if (!eligible(key)) return null;
     return { key: `daily:${key}`, end: shiftDate(key, -1), days: 1 };
   }
   const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
   let monday = shiftDate(date, -(weekday + 6) % 7);
   if (date === monday && time < config.time) monday = shiftDate(monday, -7);
+  if (!eligible(monday)) return null;
   return { key: `weekly:${monday}`, end: shiftDate(monday, -1), days: 7 };
 }

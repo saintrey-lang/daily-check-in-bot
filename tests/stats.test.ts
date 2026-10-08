@@ -32,4 +32,14 @@ describe("Discord server statistics", () => {
     expect(reportDue(new Date("2026-10-05T02:00:00Z"), config)).toEqual({ key: "weekly:2026-10-05", end: "2026-10-04", days: 7 });
     expect(reportDue(new Date("2026-10-07T12:00:00Z"), config)).toEqual({ key: "weekly:2026-10-05", end: "2026-10-04", days: 7 });
   });
+
+  it("waits for the next scheduled time after a channel schedule is saved", () => {
+    const weekly = { channelId: "123456789012345678", frequency: "weekly" as const, time: "09:00", timeZone: "Asia/Manila", enabledAt: "2026-10-08T04:00:00Z" };
+    expect(reportDue(new Date("2026-10-08T04:01:00Z"), weekly)).toBeNull();
+    expect(reportDue(new Date("2026-10-12T00:59:00Z"), weekly)).toBeNull();
+    expect(reportDue(new Date("2026-10-12T01:00:00Z"), weekly)).toEqual({ key: "weekly:2026-10-12", end: "2026-10-11", days: 7 });
+    const daily = { ...weekly, frequency: "daily" as const };
+    expect(reportDue(new Date("2026-10-08T04:01:00Z"), daily)).toBeNull();
+    expect(reportDue(new Date("2026-10-09T01:00:00Z"), daily)).toEqual({ key: "daily:2026-10-09", end: "2026-10-08", days: 1 });
+  });
 });

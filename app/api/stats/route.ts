@@ -34,6 +34,7 @@ export async function POST(request: Request) {
       frequency: body.frequency as StatsConfig["frequency"],
       time: String(body.time ?? "").trim(),
       timeZone: process.env.CHECKIN_TIMEZONE?.trim() || "Asia/Manila",
+      enabledAt: new Date().toISOString(),
     });
     const sheet = store();
     await sheet.saveConfig(config);
