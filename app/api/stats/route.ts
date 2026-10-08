@@ -1,7 +1,7 @@
 import { defaultConfig, localDateAt } from "@/lib/checkin/core";
 import { requireSameOrigin } from "@/lib/request";
 import { roleMemberPerformance, shiftDate, statsSummaryRange, validStatsDate, validateStatsConfig, type StatsConfig } from "@/lib/stats/core";
-import { StatsSheetsStore } from "@/lib/stats/sheets";
+import { StatsSheetsStore, type StatsDashboardSnapshot } from "@/lib/stats/sheets";
 
 export const dynamic = "force-dynamic";
 
@@ -9,13 +9,24 @@ function store() {
   return new StatsSheetsStore(defaultConfig(process.env).sheetId);
 }
 
+let cached: { value: StatsDashboardSnapshot; at: number } | null = null;
+let pending: { version: number; promise: Promise<StatsDashboardSnapshot> } | null = null;
+let cacheVersion = 0;
+async function snapshot(): Promise<StatsDashboardSnapshot> {
+  if (cached && Date.now() - cached.at < 30_000) return cached.value;
+  if (pending?.version === cacheVersion) return pending.promise;
+  const version = cacheVersion;
+  const promise = store().readDashboardSnapshot().then((value) => {
+    if (version === cacheVersion) cached = { value, at: Date.now() };
+    return value;
+  }).finally(() => { if (pending?.promise === promise) pending = null; });
+  pending = { version, promise };
+  return promise;
+}
+
 export async function GET(request: Request) {
   try {
-    const sheet = store();
-    const [rows, history, progress, plan, roles, config, lastReport] = await Promise.all([
-      sheet.readRows(), sheet.readHistory(), sheet.readHistoryProgress(), sheet.readHistoryPlan(),
-      sheet.readRoles(), sheet.readConfig(), sheet.readLastReport(),
-    ]);
+    const { rows, history, progress, plan, roles, config, lastReport } = await snapshot();
     const today = localDateAt(new Date(), process.env.CHECKIN_TIMEZONE?.trim() || "Asia/Manila");
     const params = new URL(request.url).searchParams;
     const period = params.get("period") || "seven";
@@ -42,6 +53,9 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("Could not load server statistics.", error);
     const invalid = error instanceof Error && /Choose a /.test(error.message);
+    const quota = !invalid && error instanceof Error && /quota exceeded|rate limit|read requests per minute/i.test(error.message);
+    if (quota) return Response.json({ error: "Google Sheets is busy. Please retry in about a minute; tracking continues." },
+      { status: 429, headers: { "Retry-After": "60" } });
     return Response.json({ error: error instanceof Error ? error.message : "Could not load server statistics." }, { status: invalid ? 400 : 503 });
   }
 }
@@ -60,6 +74,7 @@ export async function POST(request: Request) {
     });
     const sheet = store();
     await sheet.saveConfig(config);
+    cacheVersion++; cached = null; pending = null;
     return Response.json({ ok: true, config });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Could not save report schedule." }, { status: 400 });

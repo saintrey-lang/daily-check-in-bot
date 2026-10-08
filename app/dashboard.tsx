@@ -94,10 +94,11 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    if (tab !== "checkin") return;
     void refresh().catch((caught) => setError(caught instanceof Error ? caught.message : "Could not load dashboard."));
     const timer = window.setInterval(() => { void refresh().catch(() => {}); }, 60_000);
     return () => window.clearInterval(timer);
-  }, [refresh]);
+  }, [refresh, tab]);
 
   useEffect(() => {
     const fromHash = () => setTab(window.location.hash === "#starplayer" ? "starplayer" : window.location.hash === "#server-stats" ? "stats" : "checkin");
@@ -218,7 +219,7 @@ export default function Dashboard() {
           </form>
         </>}
         </section>
-        <section id="starplayer-panel" role="tabpanel" aria-labelledby="starplayer-tab" hidden={tab !== "starplayer"}><StarplayerDashboard /></section>
+        <section id="starplayer-panel" role="tabpanel" aria-labelledby="starplayer-tab" hidden={tab !== "starplayer"}>{tab === "starplayer" && <StarplayerDashboard />}</section>
         <section id="stats-panel" role="tabpanel" aria-labelledby="stats-tab" hidden={tab !== "stats"}>{tab === "stats" && <ServerStatsDashboard />}</section>
       </div>
     </main>

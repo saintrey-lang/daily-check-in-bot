@@ -6,6 +6,12 @@ const SETTINGS_HEADERS = ["Key", "Value"];
 const HISTORY_HEADERS = ["Channel ID", "Channel Name", "Before Message ID", "Covered After", "Status", "Error"];
 type Metadata = { sheets?: Array<{ properties?: { title?: string } }> };
 type Values = { values?: unknown[][] };
+type BatchValues = { valueRanges?: Values[] };
+
+export type StatsDashboardSnapshot = {
+  rows: StatDelta[]; history: StatDelta[]; progress: HistoryProgress[]; plan: HistoryPlan | null;
+  roles: StatsRole[]; config: StatsConfig; lastReport: string;
+};
 
 function parseStatsRows(rows: unknown[][]): StatDelta[] {
   return rows.flatMap((row) => !row[0] ? [] : [{
@@ -72,6 +78,36 @@ export class StatsSheetsStore {
 
   async readRows(): Promise<StatDelta[]> {
     return parseStatsRows(await this.values("ServerStats!A2:K"));
+  }
+
+  /** One Sheets read for a dashboard refresh instead of seven separate quota hits. */
+  async readDashboardSnapshot(): Promise<StatsDashboardSnapshot> {
+    const ranges = ["ServerStats!A2:K", "ServerStatsHistory!A2:K", "ServerStatsHistoryState!A2:F",
+      "ServerStatsConfig!A4:B4", "ServerStatsConfig!A5:B5", "ServerStatsConfig!A2:B2", "ServerStatsConfig!A3:B3"];
+    const params = new URLSearchParams();
+    for (const range of ranges) params.append("ranges", range);
+    const result = await this.request<BatchValues>(`/values:batchGet?${params}`, "GET");
+    const at = (index: number) => result.valueRanges?.[index]?.values ?? [];
+    const progressRows = at(2);
+    this.progressRows.clear();
+    progressRows.forEach((row, index) => { if (row[0]) this.progressRows.set(String(row[0]), index + 2); });
+    const progress = progressRows.flatMap((row) => !row[0] ? [] : [{
+      channelId: String(row[0]), channelName: String(row[1] ?? ""), before: String(row[2] ?? ""),
+      coveredAfter: String(row[3] ?? ""), status: String(row[4] ?? "pending") as HistoryProgress["status"], error: String(row[5] ?? ""),
+    }]);
+    const planRow = at(3)[0];
+    const rolesRow = at(4)[0];
+    const configRow = at(5)[0];
+    const lastReportRow = at(6)[0];
+    const fallback = { channelId: "", frequency: "weekly", time: "09:00", timeZone: process.env.CHECKIN_TIMEZONE?.trim() || "Asia/Manila" } as const;
+    return {
+      rows: parseStatsRows(at(0)), history: parseStatsRows(at(1)), progress,
+      plan: planRow?.[0] === "historyPlan" && planRow[1] ? JSON.parse(String(planRow[1])) as HistoryPlan : null,
+      roles: rolesRow?.[0] === "roles" && rolesRow[1] ? JSON.parse(String(rolesRow[1])) as StatsRole[] : [],
+      config: validateStatsConfig(configRow?.[0] === "settings" && configRow[1] ?
+        { ...fallback, ...JSON.parse(String(configRow[1])) } : { ...fallback }),
+      lastReport: lastReportRow?.[0] === "lastReport" ? String(lastReportRow[1] ?? "") : "",
+    };
   }
 
   async appendHistory(rows: StatDelta[]): Promise<void> {
