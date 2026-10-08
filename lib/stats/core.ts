@@ -3,13 +3,19 @@ import { localDateAt } from "../checkin/core";
 export type StatDelta = {
   id: string; date: string; userId: string; displayName: string;
   channelId: string; channelName: string; messages: number; voiceSeconds: number;
-  recordedAt: string;
+  recordedAt: string; roleIds?: string[]; isBot?: boolean;
 };
 export type StatsConfig = { channelId: string; frequency: "daily" | "weekly"; time: string; timeZone: string; enabledAt?: string };
+export type StatsRole = { id: string; name: string };
+export type HistoryPlan = { from: string; until: string };
+export type HistoryProgress = {
+  channelId: string; channelName: string; before: string; coveredAfter: string;
+  status: "pending" | "running" | "complete" | "error"; error: string;
+};
 export type StatsSummary = {
-  start: string; end: string; messages: number; voiceSeconds: number; activeMembers: number;
+  start: string; end: string; messages: number; botMessages: number; voiceSeconds: number; activeMembers: number;
   daily: Array<{ date: string; messages: number; voiceSeconds: number }>;
-  members: Array<{ id: string; name: string; messages: number; voiceSeconds: number }>;
+  members: Array<{ id: string; name: string; messages: number; voiceSeconds: number; isBot: boolean }>;
   channels: Array<{ id: string; name: string; messages: number; voiceSeconds: number }>;
 };
 
@@ -18,32 +24,61 @@ export function shiftDate(date: string, days: number): string {
 }
 
 export function statsSummary(rows: StatDelta[], end: string, days: number): StatsSummary {
-  if (!Number.isInteger(days) || days < 1 || days > 31) throw new Error("Choose 1–31 days.");
+  if (!Number.isInteger(days) || days < 1 || days > 366) throw new Error("Choose 1–366 days.");
   const start = shiftDate(end, 1 - days);
+  return statsSummaryRange(rows, start, end);
+}
+
+export function validStatsDate(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`)) &&
+    new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+}
+
+/** Imported channel-days replace live message counts, while preserving recorded voice time. */
+export function statsSummaryRange(
+  rows: StatDelta[], start: string, end: string,
+  options: { roleId?: string; history?: StatDelta[]; progress?: HistoryProgress[]; plan?: HistoryPlan | null } = {},
+): StatsSummary {
+  if (!validStatsDate(start) || !validStatsDate(end) || start > end ||
+      (Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86_400_000 >= 366) {
+    throw new Error("Choose a valid date range of up to 366 days.");
+  }
+  const days = Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86_400_000) + 1;
+  const covered = new Map((options.progress ?? []).map((item) => [item.channelId, item.coveredAfter]));
+  const imported = (channelId: string, date: string) => !!options.plan && date >= options.plan.from &&
+    date < options.plan.until && !!covered.get(channelId) && date > covered.get(channelId)!;
   const members = new Map<string, StatsSummary["members"][number]>();
   const channels = new Map<string, StatsSummary["channels"][number]>();
   const daily = new Map<string, StatsSummary["daily"][number]>();
-  const seen = new Set<string>();
-  for (const row of rows) {
-    if (row.date < start || row.date > end || seen.has(row.id)) continue;
-    seen.add(row.id); // Retries of a timed-out Sheet append retain the same row ID.
-    const member = members.get(row.userId) ?? { id: row.userId, name: row.displayName, messages: 0, voiceSeconds: 0 };
+  const seen = new Set<string>(); let botMessages = 0;
+  for (const [source, sourceRows] of [["live", rows], ["history", options.history ?? []]] as const) {
+    for (const row of sourceRows) {
+    if (row.date < start || row.date > end || seen.has(`${source}:${row.id}`) ||
+        (source === "history" && !imported(row.channelId, row.date))) continue;
+    if (options.roleId && !(row.roleIds ?? []).includes(options.roleId)) continue;
+    seen.add(`${source}:${row.id}`); // A retried append keeps the same row ID.
+    const member = members.get(row.userId) ?? { id: row.userId, name: row.displayName, messages: 0, voiceSeconds: 0, isBot: false };
     const channel = channels.get(row.channelId) ?? { id: row.channelId, name: row.channelName, messages: 0, voiceSeconds: 0 };
     const day = daily.get(row.date) ?? { date: row.date, messages: 0, voiceSeconds: 0 };
     member.name = row.displayName || member.name;
+    member.isBot ||= !!row.isBot;
     channel.name = row.channelName || channel.name;
+    const messages = source === "live" && imported(row.channelId, row.date) ? 0 : row.messages;
+    if (row.isBot) botMessages += messages;
     for (const item of [member, channel, day]) {
-      item.messages += row.messages;
+      item.messages += messages;
       item.voiceSeconds += row.voiceSeconds;
     }
     members.set(row.userId, member);
     channels.set(row.channelId, channel);
     daily.set(row.date, day);
+    }
   }
   const active = [...members.values()].filter((member) => member.messages || member.voiceSeconds);
   return {
     start, end,
     messages: active.reduce((count, member) => count + member.messages, 0),
+    botMessages,
     voiceSeconds: active.reduce((count, member) => count + member.voiceSeconds, 0),
     activeMembers: active.length,
     daily: Array.from({ length: days }, (_, index) => daily.get(shiftDate(start, index)) ?? { date: shiftDate(start, index), messages: 0, voiceSeconds: 0 }),

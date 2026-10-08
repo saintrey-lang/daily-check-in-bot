@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { reportDue, statsSummary, type StatDelta } from "../lib/stats/core";
+import { reportDue, statsSummary, statsSummaryRange, type StatDelta } from "../lib/stats/core";
+import { dateBoundarySnowflake } from "../checkin-worker/history";
 
 const row: StatDelta = {
   id: "one", date: "2026-10-07", userId: "123", displayName: "Player A",
@@ -18,6 +19,27 @@ describe("Discord server statistics", () => {
     expect(summary.activeMembers).toBe(2);
     expect(summary.daily.find((day) => day.date === "2026-10-07")).toMatchObject({ messages: 3, voiceSeconds: 5_400 });
     expect(summary.channels).toHaveLength(2);
+  });
+
+  it("uses completed history in place of overlapping live messages while retaining live voice time", () => {
+    const live = { ...row, date: "2026-08-15", messages: 4, voiceSeconds: 300, roleIds: ["111111111111111111"] };
+    const imported = { ...live, id: "history:456:2026-08-15:123", messages: 9, voiceSeconds: 0, isBot: true };
+    const options = {
+      history: [imported, imported],
+      plan: { from: "2026-08-01", until: "2026-10-08" },
+      progress: [{ channelId: "456", channelName: "general", before: "", coveredAfter: "2026-08-14", status: "running" as const, error: "" }],
+      roleId: "111111111111111111",
+    };
+    const summary = statsSummaryRange([live], "2026-08-15", "2026-08-15", options);
+    expect(summary).toMatchObject({ messages: 9, botMessages: 9, voiceSeconds: 300, activeMembers: 1 });
+    expect(statsSummaryRange([live], "2026-08-15", "2026-08-15", { ...options, roleId: "222222222222222222" }).messages).toBe(0);
+    expect(statsSummaryRange([live], "2026-08-15", "2026-08-15", { ...options, progress: [] }).messages).toBe(4);
+  });
+
+  it("anchors a single-day custom view and the import boundary to Manila dates", () => {
+    expect(statsSummaryRange([row], "2026-10-07", "2026-10-07").daily).toHaveLength(1);
+    const timestamp = Number(BigInt(dateBoundarySnowflake("2026-08-01", "Asia/Manila")) >> 22n) + 1_420_070_400_000;
+    expect(new Date(timestamp).toISOString()).toBe("2026-07-31T16:00:00.000Z");
   });
 
   it("posts the prior complete Manila day after the selected daily time", () => {

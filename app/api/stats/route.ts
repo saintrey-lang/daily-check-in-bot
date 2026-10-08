@@ -1,6 +1,6 @@
 import { defaultConfig, localDateAt } from "@/lib/checkin/core";
 import { requireSameOrigin } from "@/lib/request";
-import { statsSummary, validateStatsConfig, type StatsConfig } from "@/lib/stats/core";
+import { shiftDate, statsSummaryRange, validStatsDate, validateStatsConfig, type StatsConfig } from "@/lib/stats/core";
 import { StatsSheetsStore } from "@/lib/stats/sheets";
 
 export const dynamic = "force-dynamic";
@@ -9,18 +9,34 @@ function store() {
   return new StatsSheetsStore(defaultConfig(process.env).sheetId);
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const sheet = store();
-    const [rows, config, lastReport] = await Promise.all([sheet.readRows(), sheet.readConfig(), sheet.readLastReport()]);
+    const [rows, history, progress, plan, roles, config, lastReport] = await Promise.all([
+      sheet.readRows(), sheet.readHistory(), sheet.readHistoryProgress(), sheet.readHistoryPlan(),
+      sheet.readRoles(), sheet.readConfig(), sheet.readLastReport(),
+    ]);
     const today = localDateAt(new Date(), process.env.CHECKIN_TIMEZONE?.trim() || "Asia/Manila");
+    const params = new URL(request.url).searchParams;
+    const period = params.get("period") || "seven";
+    if (!["seven", "thirty", "custom"].includes(period)) throw new Error("Choose a valid statistics period.");
+    const end = params.get("end") || today;
+    if (!validStatsDate(end) || end > today) throw new Error("Choose a date on or before today.");
+    const start = period === "custom" ? (params.get("start") || end) : shiftDate(end, period === "seven" ? -6 : -29);
+    const roleId = params.get("roleId") || "";
+    if (roleId && !/^\d{17,20}$/.test(roleId)) throw new Error("Choose a valid Discord role.");
     return Response.json({
-      seven: statsSummary(rows, today, 7), thirty: statsSummary(rows, today, 30), config, lastReport,
+      summary: statsSummaryRange(rows, start, end, { history, progress, plan, roleId }),
+      config, lastReport, roles, historyPlan: plan,
+      historyProgress: { total: progress.length, complete: progress.filter((item) => item.status === "complete").length,
+        errors: progress.filter((item) => item.status === "error").map(({ channelName, error }) => ({ channelName, error })) },
+      today,
       sheetUrl: `https://docs.google.com/spreadsheets/d/${defaultConfig(process.env).sheetId}/edit`,
     });
   } catch (error) {
     console.error("Could not load server statistics.", error);
-    return Response.json({ error: error instanceof Error ? error.message : "Could not load server statistics." }, { status: 503 });
+    const invalid = error instanceof Error && /Choose a /.test(error.message);
+    return Response.json({ error: error instanceof Error ? error.message : "Could not load server statistics." }, { status: invalid ? 400 : 503 });
   }
 }
 

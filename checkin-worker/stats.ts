@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { Client, Events, type Message, type VoiceState } from "discord.js";
 import { localDateAt } from "../lib/checkin/core";
-import { reportDue, statsSummary, type StatDelta } from "../lib/stats/core";
+import { reportDue, shiftDate, statsSummaryRange, type StatDelta } from "../lib/stats/core";
 import { StatsSheetsStore } from "../lib/stats/sheets";
+import { attachHistory } from "./history";
 
 type Bucket = Omit<StatDelta, "id" | "recordedAt">;
-type VoiceSession = { userId: string; displayName: string; channelId: string; channelName: string; since: number };
+type VoiceSession = { userId: string; displayName: string; channelId: string; channelName: string; since: number; roleIds: string[]; isBot: boolean };
 
 export function attachStats(client: Client, guildId: string, sheetId: string): void {
   const store = new StatsSheetsStore(sheetId);
@@ -18,19 +19,25 @@ export function attachStats(client: Client, guildId: string, sheetId: string): v
   let reporting = false;
   let statsReady = false;
   let settingUp = false;
+  let historyStarted = false;
   const timeZone = process.env.CHECKIN_TIMEZONE?.trim() || "Asia/Manila";
 
   async function ensureSetup(): Promise<void> {
     if (statsReady || settingUp) return;
     settingUp = true;
-    try { await store.setup(); statsReady = true; }
+    try {
+      await store.setup(); statsReady = true;
+      if (!historyStarted) { historyStarted = true; attachHistory(client, guildId, store, timeZone); }
+    }
     catch (error) { console.error("Could not set up server statistics; will retry without stopping check-ins.", error); }
     finally { settingUp = false; }
   }
 
-  function add(date: string, userId: string, displayName: string, channelId: string, channelName: string, messages: number, voiceSeconds: number): void {
-    const key = `${date}:${userId}:${channelId}`;
-    const bucket = buckets.get(key) ?? { date, userId, displayName, channelId, channelName, messages: 0, voiceSeconds: 0 };
+  function add(date: string, userId: string, displayName: string, channelId: string, channelName: string,
+    messages: number, voiceSeconds: number, roleIds: string[], isBot: boolean): void {
+    const roles = [...roleIds].sort();
+    const key = `${date}:${userId}:${channelId}:${roles.join(",")}:${isBot}`;
+    const bucket = buckets.get(key) ?? { date, userId, displayName, channelId, channelName, messages: 0, voiceSeconds: 0, roleIds: roles, isBot };
     bucket.displayName = displayName;
     bucket.channelName = channelName;
     bucket.messages += messages;
@@ -54,19 +61,20 @@ export function attachStats(client: Client, guildId: string, sheetId: string): v
         }
         to = low;
       }
-      add(date, session.userId, session.displayName, session.channelId, session.channelName, 0, (to - from) / 1_000);
+      add(date, session.userId, session.displayName, session.channelId, session.channelName, 0, (to - from) / 1_000, session.roleIds, session.isBot);
       from = to;
     }
     session.since = until;
   }
 
   client.on(Events.MessageCreate, (message: Message) => {
-    if (message.guildId !== guildId || message.author.bot || seenMessages.has(message.id)) return;
+    if (message.guildId !== guildId || seenMessages.has(message.id)) return;
     seenMessages.add(message.id);
     if (seenMessages.size > 10_000) seenMessages.clear();
     add(localDateAt(message.createdAt, timeZone), message.author.id,
       message.member?.displayName ?? message.author.globalName ?? message.author.username,
-      message.channelId, "name" in message.channel ? String(message.channel.name) : message.channelId, 1, 0);
+      message.channelId, "name" in message.channel ? String(message.channel.name) : message.channelId, 1, 0,
+      message.member?.roles.cache.map((role) => role.id) ?? [], message.author.bot || !!message.webhookId);
   });
 
   client.on(Events.VoiceStateUpdate, (oldState: VoiceState, newState: VoiceState) => {
@@ -77,6 +85,7 @@ export function attachStats(client: Client, guildId: string, sheetId: string): v
     if (newState.channelId && !newState.member?.user.bot) voice.set(userId, {
       userId, displayName: newState.member?.displayName ?? userId,
       channelId: newState.channelId, channelName: newState.channel?.name ?? newState.channelId, since: Date.now(),
+      roleIds: newState.member?.roles.cache.map((role) => role.id) ?? [], isBot: false,
     });
   });
 
@@ -119,7 +128,10 @@ export function attachStats(client: Client, guildId: string, sheetId: string): v
       const footer = `SERVER_STATS:${due.key}`;
       const alreadyPosted = existing.some((message) => message.author.id === client.user?.id && message.embeds[0]?.footer?.text === footer);
       if (!alreadyPosted) {
-        const summary = statsSummary(await store.readRows(), due.end, due.days);
+        const [live, history, progress, plan] = await Promise.all([
+          store.readRows(), store.readHistory(), store.readHistoryProgress(), store.readHistoryPlan(),
+        ]);
+        const summary = statsSummaryRange(live, shiftDate(due.end, 1 - due.days), due.end, { history, progress, plan });
         const top = (items: typeof summary.members | typeof summary.channels, unit: "messages" | "voiceSeconds") =>
           [...items].sort((a, b) => b[unit] - a[unit]).filter((item) => item[unit] > 0).slice(0, 5)
             .map((item, index) => `${index + 1}. ${item.name.replace(/[`*_~|<>@]/g, "").slice(0, 50)} · ${unit === "messages" ? item.messages.toLocaleString() : `${(item.voiceSeconds / 3_600).toFixed(1)}h`}`).join("\n") || "No activity recorded";
@@ -151,6 +163,7 @@ export function attachStats(client: Client, guildId: string, sheetId: string): v
       voice.set(state.id, {
         userId: state.id, displayName: state.member?.displayName ?? state.id,
         channelId: state.channelId, channelName: state.channel?.name ?? state.channelId, since: Date.now(),
+        roleIds: state.member?.roles.cache.map((role) => role.id) ?? [], isBot: false,
       });
     }
     console.info(`Server statistics tracking started for guild ${guildId}`);
