@@ -4,13 +4,14 @@ import { defaultConfig, promptEmbed, windowAt, type CheckinAsset, type CheckinCo
 import { processCheckin, ensureDailyPrompt } from "../lib/checkin/service";
 import { CheckinSheetsStore } from "../lib/checkin/sheets";
 import { attachStarplayer } from "./starplayer";
+import { attachStats } from "./stats";
 
 const token = process.env.DISCORD_BOT_TOKEN?.trim();
 if (!token) throw new Error("Set DISCORD_BOT_TOKEN before starting the worker.");
 const initialConfig = defaultConfig(process.env);
 const store = new CheckinSheetsStore(initialConfig.sheetId);
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildVoiceStates],
 });
 const assetCache = new Map<string, CheckinAsset>();
 let handledPrompt = "";
@@ -151,6 +152,7 @@ client.once(Events.ClientReady, () => {
 });
 client.on(Events.Error, (error) => console.error("Discord connection error.", error));
 attachStarplayer(client, initialConfig.guildId);
+attachStats(client, initialConfig.guildId, initialConfig.sheetId);
 
 await store.setup();
 await client.login(token);

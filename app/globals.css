@@ -236,6 +236,24 @@ code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 .submission-links a { display: block; margin: 2px 0; overflow-wrap: anywhere; }
 .empty-state { margin: 0; padding: 20px 23px; color: var(--muted); font-size: 12px; }
 
+.server-stats { scroll-margin-top: 100px; }
+.stats-period { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 19px 0 -13px; }
+.stats-period button { padding: 9px 13px; border: 1px solid var(--border); border-radius: 8px; background: #1a2447; color: #c3d1e8; font-size: 11px; font-weight: 700; }
+.stats-period button[aria-pressed="true"] { background: #b9f2e9; color: #122744; }
+.stats-period span { margin-left: auto; color: var(--muted); font-size: 11px; }
+.stats-tables { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px; }
+.stats-tables .starplayer-panel { margin-top: 0; }
+.server-stats table { width: 100%; min-width: 360px; border-collapse: collapse; text-align: left; font-size: 12px; }
+.server-stats th, .server-stats td { padding: 12px 18px; border-bottom: 1px solid var(--border); }
+.server-stats th { color: #b8c9e1; text-transform: uppercase; letter-spacing: .08em; font-size: 10px; }
+.server-stats td:first-child { overflow-wrap: anywhere; }
+.stats-settings-fields { display: grid; grid-template-columns: 1.5fr 1fr 1fr auto; align-items: end; gap: 14px; padding: 23px 23px 4px; }
+.stats-settings-fields .field-label { margin: 0; }
+.stats-settings-fields .primary { min-height: 39px; }
+.stats-settings select { display: block; width: 100%; margin-top: 8px; padding: 11px 12px; border: 1px solid #5b6998; border-radius: 8px; background: #0f1733; color: #f2f8ff; font-size: 12px; }
+.stats-settings > p, .stats-note { margin: 12px 23px 22px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.stats-note { margin: 22px 0 0; }
+
 /* The retired login route still uses this layout when visited directly. */
 .auth-shell { display: grid; place-items: center; min-height: 100vh; padding: 24px; background: radial-gradient(circle at 65% -10%, #48417a, transparent 38%), #0c1126; }
 .auth-card { width: 100%; max-width: 420px; padding: 35px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); box-shadow: 0 25px 90px #0005; }
@@ -263,6 +281,8 @@ code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
   .schedule-card { gap: 15px; }
   .launch { flex-direction: column; align-items: flex-start; }
   .day-one-controls { flex-direction: column; align-items: flex-start; }
+  .stats-tables { grid-template-columns: 1fr; }
+  .stats-settings-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 480px) {
   .brand b { font-size: 12px; }
@@ -280,4 +300,6 @@ code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
   .codes-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .save-bar { flex-direction: column; align-items: stretch; }
   .save-bar button { width: 100%; }
+  .stats-period span { margin: 8px 0 0; width: 100%; }
+  .stats-settings-fields { grid-template-columns: 1fr; }
 }

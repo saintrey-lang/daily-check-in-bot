@@ -18,6 +18,14 @@ This project has a Vercel team-protected dashboard and a separate, continuously 
 - Codes and reset time remain editable during a run. A changed code updates the current day's announcement when the worker syncs; a reset-time change takes effect on the next local calendar day and leaves earlier day boundaries intact. The timezone remains fixed until the run ends. Future replies use the latest template.
 - Day 4, 7 and 15 consecutive check-ins get milestone congratulations. A missed day resets the streak. Codes are case-insensitive and each player can check in only once per day.
 
+## Server statistics
+
+- The same Railway worker collects new **member message counts and voice time** across the configured Discord server. It excludes bot messages and never saves message text. Counts begin when the updated worker connects; they cannot reconstruct Statbot's earlier data.
+- The **SERVER STATS** dashboard tab shows totals, active members, daily activity, and per-member/per-channel breakdowns over the last 7 or 30 local days. The worker batches counts into `ServerStats` in the check-in Google Sheet about once per minute. A brief outage can lose the unsaved interval; a failed Sheet write is retried with the same row IDs to prevent double-counting.
+- Set a report channel ID, daily or weekly frequency, and time in the dashboard. Weekly reports cover the preceding Monday–Sunday and post on Monday at the selected time in `CHECKIN_TIMEZONE` (default `Asia/Manila`); daily reports cover the preceding day. The report channel must grant **View Channel**, **Send Messages**, **Embed Links**, and **Read Message History**. Leave the channel ID empty to pause posts while retaining tracking.
+- The worker also creates `ServerStatsConfig` in the same Sheet. Do not rename its columns. Deleting rows from `ServerStats` removes those counts from future dashboard views and reports.
+- **Status, game activity, and invite attribution** need additional privileged Gateway intents and/or server permissions. This release does not show estimates for them.
+
 ## Setup
 
 1. Keep the Google Sheet **Restricted** and share it with `GOOGLE_SERVICE_ACCOUNT_EMAIL` as **Editor**. Ensure the service account has the Google Sheets API enabled. The app creates `Checkins`, `CheckinPrompts`, `CheckinConfig` and `CheckinAssets`; it does not touch other tabs.

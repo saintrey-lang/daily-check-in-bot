@@ -4,6 +4,9 @@ import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { formatResetTime, localDateAt, type CheckinConfig, type CheckinWindow, type EmbedTemplate } from "@/lib/checkin/core";
 import StarplayerDashboard from "./starplayer-dashboard";
+import ServerStatsDashboard from "./server-stats-dashboard";
+
+type DashboardTab = "checkin" | "starplayer" | "stats";
 
 type Status = {
   config: CheckinConfig; window: CheckinWindow | null;
@@ -62,7 +65,7 @@ function EmbedEditor({ label, prefix, value, onChange, status, code, resetTime }
 }
 
 export default function Dashboard() {
-  const [tab, setTab] = useState<"checkin" | "starplayer">("checkin");
+  const [tab, setTab] = useState<DashboardTab>("checkin");
   const [status, setStatus] = useState<Status | null>(null);
   const [prompt, setPrompt] = useState<Editor | null>(null);
   const [success, setSuccess] = useState<Editor | null>(null);
@@ -97,15 +100,15 @@ export default function Dashboard() {
   }, [refresh]);
 
   useEffect(() => {
-    const fromHash = () => setTab(window.location.hash === "#starplayer" ? "starplayer" : "checkin");
+    const fromHash = () => setTab(window.location.hash === "#starplayer" ? "starplayer" : window.location.hash === "#server-stats" ? "stats" : "checkin");
     fromHash();
     window.addEventListener("hashchange", fromHash);
     return () => window.removeEventListener("hashchange", fromHash);
   }, []);
 
-  function selectTab(next: "checkin" | "starplayer") {
+  function selectTab(next: DashboardTab) {
     setTab(next);
-    window.history.replaceState(null, "", next === "starplayer" ? "#starplayer" : "#daily-check-in");
+    window.history.replaceState(null, "", next === "starplayer" ? "#starplayer" : next === "stats" ? "#server-stats" : "#daily-check-in");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -168,7 +171,9 @@ export default function Dashboard() {
       <div className="dashboard-tabs" role="tablist" aria-label="Dashboard sections">
         <button id="checkin-tab" type="button" role="tab" aria-controls="checkin-panel" aria-selected={tab === "checkin"} tabIndex={tab === "checkin" ? 0 : -1} onClick={() => selectTab("checkin")} onKeyDown={(event) => { if (event.key === "ArrowRight") { selectTab("starplayer"); document.getElementById("starplayer-tab")?.focus(); } }}>DAILY CHECK-IN</button>
         <span className="tab-divider" aria-hidden="true">|</span>
-        <button id="starplayer-tab" type="button" role="tab" aria-controls="starplayer-panel" aria-selected={tab === "starplayer"} tabIndex={tab === "starplayer" ? 0 : -1} onClick={() => selectTab("starplayer")} onKeyDown={(event) => { if (event.key === "ArrowLeft") { selectTab("checkin"); document.getElementById("checkin-tab")?.focus(); } }}>STARPLAYER</button>
+        <button id="starplayer-tab" type="button" role="tab" aria-controls="starplayer-panel" aria-selected={tab === "starplayer"} tabIndex={tab === "starplayer" ? 0 : -1} onClick={() => selectTab("starplayer")} onKeyDown={(event) => { if (event.key === "ArrowLeft") { selectTab("checkin"); document.getElementById("checkin-tab")?.focus(); } if (event.key === "ArrowRight") { selectTab("stats"); document.getElementById("stats-tab")?.focus(); } }}>STARPLAYER</button>
+        <span className="tab-divider" aria-hidden="true">|</span>
+        <button id="stats-tab" type="button" role="tab" aria-controls="stats-panel" aria-selected={tab === "stats"} tabIndex={tab === "stats" ? 0 : -1} onClick={() => selectTab("stats")} onKeyDown={(event) => { if (event.key === "ArrowLeft") { selectTab("starplayer"); document.getElementById("starplayer-tab")?.focus(); } }}>SERVER STATS</button>
       </div>
       <span className="topbar-right">EVENT CONTROL CENTER <span className="avatar">GS</span></span>
     </header>
@@ -214,6 +219,7 @@ export default function Dashboard() {
         </>}
         </section>
         <section id="starplayer-panel" role="tabpanel" aria-labelledby="starplayer-tab" hidden={tab !== "starplayer"}><StarplayerDashboard /></section>
+        <section id="stats-panel" role="tabpanel" aria-labelledby="stats-tab" hidden={tab !== "stats"}>{tab === "stats" && <ServerStatsDashboard />}</section>
       </div>
     </main>
   </div>;
