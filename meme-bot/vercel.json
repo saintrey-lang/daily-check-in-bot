@@ -1,0 +1,404 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/0",
+      "schedule": "0 16 * * *"
+    },
+    {
+      "path": "/api/cron/1",
+      "schedule": "14 16 * * *"
+    },
+    {
+      "path": "/api/cron/2",
+      "schedule": "28 16 * * *"
+    },
+    {
+      "path": "/api/cron/3",
+      "schedule": "43 16 * * *"
+    },
+    {
+      "path": "/api/cron/4",
+      "schedule": "57 16 * * *"
+    },
+    {
+      "path": "/api/cron/5",
+      "schedule": "12 17 * * *"
+    },
+    {
+      "path": "/api/cron/6",
+      "schedule": "26 17 * * *"
+    },
+    {
+      "path": "/api/cron/7",
+      "schedule": "40 17 * * *"
+    },
+    {
+      "path": "/api/cron/8",
+      "schedule": "55 17 * * *"
+    },
+    {
+      "path": "/api/cron/9",
+      "schedule": "9 18 * * *"
+    },
+    {
+      "path": "/api/cron/10",
+      "schedule": "24 18 * * *"
+    },
+    {
+      "path": "/api/cron/11",
+      "schedule": "38 18 * * *"
+    },
+    {
+      "path": "/api/cron/12",
+      "schedule": "52 18 * * *"
+    },
+    {
+      "path": "/api/cron/13",
+      "schedule": "7 19 * * *"
+    },
+    {
+      "path": "/api/cron/14",
+      "schedule": "21 19 * * *"
+    },
+    {
+      "path": "/api/cron/15",
+      "schedule": "36 19 * * *"
+    },
+    {
+      "path": "/api/cron/16",
+      "schedule": "50 19 * * *"
+    },
+    {
+      "path": "/api/cron/17",
+      "schedule": "4 20 * * *"
+    },
+    {
+      "path": "/api/cron/18",
+      "schedule": "19 20 * * *"
+    },
+    {
+      "path": "/api/cron/19",
+      "schedule": "33 20 * * *"
+    },
+    {
+      "path": "/api/cron/20",
+      "schedule": "48 20 * * *"
+    },
+    {
+      "path": "/api/cron/21",
+      "schedule": "2 21 * * *"
+    },
+    {
+      "path": "/api/cron/22",
+      "schedule": "16 21 * * *"
+    },
+    {
+      "path": "/api/cron/23",
+      "schedule": "31 21 * * *"
+    },
+    {
+      "path": "/api/cron/24",
+      "schedule": "45 21 * * *"
+    },
+    {
+      "path": "/api/cron/25",
+      "schedule": "0 22 * * *"
+    },
+    {
+      "path": "/api/cron/26",
+      "schedule": "14 22 * * *"
+    },
+    {
+      "path": "/api/cron/27",
+      "schedule": "28 22 * * *"
+    },
+    {
+      "path": "/api/cron/28",
+      "schedule": "43 22 * * *"
+    },
+    {
+      "path": "/api/cron/29",
+      "schedule": "57 22 * * *"
+    },
+    {
+      "path": "/api/cron/30",
+      "schedule": "12 23 * * *"
+    },
+    {
+      "path": "/api/cron/31",
+      "schedule": "26 23 * * *"
+    },
+    {
+      "path": "/api/cron/32",
+      "schedule": "40 23 * * *"
+    },
+    {
+      "path": "/api/cron/33",
+      "schedule": "55 23 * * *"
+    },
+    {
+      "path": "/api/cron/34",
+      "schedule": "9 0 * * *"
+    },
+    {
+      "path": "/api/cron/35",
+      "schedule": "24 0 * * *"
+    },
+    {
+      "path": "/api/cron/36",
+      "schedule": "38 0 * * *"
+    },
+    {
+      "path": "/api/cron/37",
+      "schedule": "52 0 * * *"
+    },
+    {
+      "path": "/api/cron/38",
+      "schedule": "7 1 * * *"
+    },
+    {
+      "path": "/api/cron/39",
+      "schedule": "21 1 * * *"
+    },
+    {
+      "path": "/api/cron/40",
+      "schedule": "36 1 * * *"
+    },
+    {
+      "path": "/api/cron/41",
+      "schedule": "50 1 * * *"
+    },
+    {
+      "path": "/api/cron/42",
+      "schedule": "4 2 * * *"
+    },
+    {
+      "path": "/api/cron/43",
+      "schedule": "19 2 * * *"
+    },
+    {
+      "path": "/api/cron/44",
+      "schedule": "33 2 * * *"
+    },
+    {
+      "path": "/api/cron/45",
+      "schedule": "48 2 * * *"
+    },
+    {
+      "path": "/api/cron/46",
+      "schedule": "2 3 * * *"
+    },
+    {
+      "path": "/api/cron/47",
+      "schedule": "16 3 * * *"
+    },
+    {
+      "path": "/api/cron/48",
+      "schedule": "31 3 * * *"
+    },
+    {
+      "path": "/api/cron/49",
+      "schedule": "45 3 * * *"
+    },
+    {
+      "path": "/api/cron/50",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/51",
+      "schedule": "14 4 * * *"
+    },
+    {
+      "path": "/api/cron/52",
+      "schedule": "28 4 * * *"
+    },
+    {
+      "path": "/api/cron/53",
+      "schedule": "43 4 * * *"
+    },
+    {
+      "path": "/api/cron/54",
+      "schedule": "57 4 * * *"
+    },
+    {
+      "path": "/api/cron/55",
+      "schedule": "12 5 * * *"
+    },
+    {
+      "path": "/api/cron/56",
+      "schedule": "26 5 * * *"
+    },
+    {
+      "path": "/api/cron/57",
+      "schedule": "40 5 * * *"
+    },
+    {
+      "path": "/api/cron/58",
+      "schedule": "55 5 * * *"
+    },
+    {
+      "path": "/api/cron/59",
+      "schedule": "9 6 * * *"
+    },
+    {
+      "path": "/api/cron/60",
+      "schedule": "24 6 * * *"
+    },
+    {
+      "path": "/api/cron/61",
+      "schedule": "38 6 * * *"
+    },
+    {
+      "path": "/api/cron/62",
+      "schedule": "52 6 * * *"
+    },
+    {
+      "path": "/api/cron/63",
+      "schedule": "7 7 * * *"
+    },
+    {
+      "path": "/api/cron/64",
+      "schedule": "21 7 * * *"
+    },
+    {
+      "path": "/api/cron/65",
+      "schedule": "36 7 * * *"
+    },
+    {
+      "path": "/api/cron/66",
+      "schedule": "50 7 * * *"
+    },
+    {
+      "path": "/api/cron/67",
+      "schedule": "4 8 * * *"
+    },
+    {
+      "path": "/api/cron/68",
+      "schedule": "19 8 * * *"
+    },
+    {
+      "path": "/api/cron/69",
+      "schedule": "33 8 * * *"
+    },
+    {
+      "path": "/api/cron/70",
+      "schedule": "48 8 * * *"
+    },
+    {
+      "path": "/api/cron/71",
+      "schedule": "2 9 * * *"
+    },
+    {
+      "path": "/api/cron/72",
+      "schedule": "16 9 * * *"
+    },
+    {
+      "path": "/api/cron/73",
+      "schedule": "31 9 * * *"
+    },
+    {
+      "path": "/api/cron/74",
+      "schedule": "45 9 * * *"
+    },
+    {
+      "path": "/api/cron/75",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/76",
+      "schedule": "14 10 * * *"
+    },
+    {
+      "path": "/api/cron/77",
+      "schedule": "28 10 * * *"
+    },
+    {
+      "path": "/api/cron/78",
+      "schedule": "43 10 * * *"
+    },
+    {
+      "path": "/api/cron/79",
+      "schedule": "57 10 * * *"
+    },
+    {
+      "path": "/api/cron/80",
+      "schedule": "12 11 * * *"
+    },
+    {
+      "path": "/api/cron/81",
+      "schedule": "26 11 * * *"
+    },
+    {
+      "path": "/api/cron/82",
+      "schedule": "40 11 * * *"
+    },
+    {
+      "path": "/api/cron/83",
+      "schedule": "55 11 * * *"
+    },
+    {
+      "path": "/api/cron/84",
+      "schedule": "9 12 * * *"
+    },
+    {
+      "path": "/api/cron/85",
+      "schedule": "24 12 * * *"
+    },
+    {
+      "path": "/api/cron/86",
+      "schedule": "38 12 * * *"
+    },
+    {
+      "path": "/api/cron/87",
+      "schedule": "52 12 * * *"
+    },
+    {
+      "path": "/api/cron/88",
+      "schedule": "7 13 * * *"
+    },
+    {
+      "path": "/api/cron/89",
+      "schedule": "21 13 * * *"
+    },
+    {
+      "path": "/api/cron/90",
+      "schedule": "36 13 * * *"
+    },
+    {
+      "path": "/api/cron/91",
+      "schedule": "50 13 * * *"
+    },
+    {
+      "path": "/api/cron/92",
+      "schedule": "4 14 * * *"
+    },
+    {
+      "path": "/api/cron/93",
+      "schedule": "19 14 * * *"
+    },
+    {
+      "path": "/api/cron/94",
+      "schedule": "33 14 * * *"
+    },
+    {
+      "path": "/api/cron/95",
+      "schedule": "48 14 * * *"
+    },
+    {
+      "path": "/api/cron/96",
+      "schedule": "2 15 * * *"
+    },
+    {
+      "path": "/api/cron/97",
+      "schedule": "16 15 * * *"
+    },
+    {
+      "path": "/api/cron/98",
+      "schedule": "31 15 * * *"
+    },
+    {
+      "path": "/api/cron/99",
+      "schedule": "45 15 * * *"
+    }
+  ]
+}
