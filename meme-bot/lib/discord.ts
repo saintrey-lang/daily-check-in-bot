@@ -13,7 +13,9 @@ export function config() {
   if (!token || !guildId || !channelId || !/^\d{17,20}$/.test(guildId) || !/^\d{17,20}$/.test(channelId)) {
     throw new Error('Discord configuration is incomplete');
   }
-  return { token, guildId, channelId };
+  const botId = Buffer.from(token.split('.')[0], 'base64url').toString('utf8');
+  if (!/^\d{17,20}$/.test(botId)) throw new Error('Bot token format is invalid');
+  return { token, guildId, channelId, botId };
 }
 
 export async function discordRequest(path: string, init: RequestInit = {}) {
@@ -44,6 +46,9 @@ export async function sendMeme(image: Buffer, day: string, slot: number) {
     nonce: `meme-${day}-${slot}`, enforce_nonce: true,
     allowed_mentions: { parse: [] },
     attachments: [{ id: 0, filename, description: 'Original TFT and Golden Spatula gameplay meme' }],
+    embeds: [{ image: { url: `attachment://${filename}` }, color: 0xf4b942,
+      footer: { text: `TFT & Golden Spatula | ${day} | ${slot + 1}/100` },
+    }],
   }));
   form.append('files[0]', new Blob([new Uint8Array(image)], { type: 'image/png' }), filename);
   for (let attempt = 0; attempt < 3; attempt++) {

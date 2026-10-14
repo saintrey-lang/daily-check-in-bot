@@ -1,51 +1,65 @@
-import { get, list, put } from '@vercel/blob';
+import { config, discordRequest } from './discord.ts';
 
-export async function claimSlot(day: string, slot: number, storage = { put, get }): Promise<boolean> {
-  const path = `claims/${day}/${slot}.json`;
-  try {
-    await storage.put(path, JSON.stringify({ day, slot, claimedAt: new Date().toISOString() }), {
-      access: 'private', addRandomSuffix: false, allowOverwrite: false, contentType: 'application/json',
-    });
-    return true;
-  } catch (error) {
-    // SDK versions use different errors for an existing pathname. Confirm the
-    // immutable claim rather than treating every storage failure as a duplicate.
-    const existing = await storage.get(path, { access: 'private', useCache: false }).catch(() => null);
-    if (existing?.statusCode === 200) return false;
-    throw error;
+export type PostedMeme = { day: string; slot: number; id: string; timestamp: string };
+const MARKER = /^TFT & Golden Spatula \| (\d{4}-\d{2}-\d{2}) \| (\d{1,3})\/100$/;
+
+export function messageMeme(message: Record<string, any>, botId: string): PostedMeme | null {
+  if (message.author?.id !== botId) return null;
+  for (const embed of message.embeds ?? []) {
+    const match = MARKER.exec(embed.footer?.text ?? '');
+    if (match && Number(match[2]) >= 1 && Number(match[2]) <= 100) {
+      return { day: match[1], slot: Number(match[2]) - 1, id: message.id, timestamp: message.timestamp };
+    }
   }
+  return null;
 }
 
-export async function recordResult(day: string, slot: number, state: 'sent' | 'failed' | 'uncertain', messageId?: string) {
-  await put(`results/${day}/${state}/${slot}.json`, JSON.stringify({ day, slot, state, messageId, recordedAt: new Date().toISOString() }), {
-    access: 'private', addRandomSuffix: false, allowOverwrite: false, contentType: 'application/json',
-  });
+export async function postingHistory(day: string): Promise<PostedMeme[]> {
+  const { channelId, botId } = config();
+  const oldest = Date.parse(day + 'T00:00:00+08:00');
+  let before: string | undefined;
+  const found: PostedMeme[] = [];
+  for (let page = 0; page < 20; page++) {
+    const path = `/channels/${channelId}/messages?limit=100${before ? '&before=' + before : ''}`;
+    const messages = await discordRequest(path);
+    if (!Array.isArray(messages)) throw new Error('Discord history response is invalid');
+    for (const message of messages) {
+      const record = messageMeme(message, botId);
+      if (record && record.day === day) found.push(record);
+    }
+    if (messages.length < 100 || Date.parse(messages[messages.length - 1].timestamp) < oldest) return found;
+    before = messages[messages.length - 1].id;
+  }
+  throw new Error('Channel history is too busy to verify this day safely');
 }
 
 export async function isPaused() {
-  const result = await get('settings/paused.json', { access: 'private', useCache: false });
-  if (!result || result.statusCode !== 200) return false;
-  const value = await new Response(result.stream).json();
-  return value.paused === true;
+  const id = process.env.MEME_CONTROL_MESSAGE_ID;
+  if (!id) return false;
+  const { channelId, botId } = config();
+  const message = await discordRequest(`/channels/${channelId}/messages/${id}`);
+  if (message.author?.id !== botId) throw new Error('The control message is not owned by this bot');
+  const field = message.embeds?.[0]?.fields?.find((field: Record<string, string>) => field.name === 'Posting');
+  if (!field || !['Active', 'Paused'].includes(field.value)) throw new Error('The control message is invalid');
+  return field.value === 'Paused';
 }
 
 export async function setPaused(paused: boolean) {
-  await put('settings/paused.json', JSON.stringify({ paused }), {
-    access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json',
+  const { channelId } = config();
+  const id = process.env.MEME_CONTROL_MESSAGE_ID;
+  const body = JSON.stringify({
+    embeds: [{ title: 'TFT & Golden Spatula Daily Memes', color: 0xf4b942,
+      description: '100 gameplay image memes scheduled per day.',
+      fields: [{ name: 'Posting', value: paused ? 'Paused' : 'Active', inline: true }],
+    }], allowed_mentions: { parse: [] },
   });
+  const message = await discordRequest(`/channels/${channelId}/messages${id ? '/' + id : ''}`, {
+    method: id ? 'PATCH' : 'POST', body, headers: { 'Content-Type': 'application/json' },
+  });
+  return message.id as string;
 }
 
 export async function postingCounts(day: string) {
-  let cursor: string | undefined;
-  const names: string[] = [];
-  do {
-    const result = await list({ prefix: `results/${day}/`, limit: 1000, cursor });
-    names.push(...result.blobs.map(blob => blob.pathname));
-    cursor = result.hasMore ? result.cursor : undefined;
-  } while (cursor);
-  return {
-    sent: names.filter(name => name.includes('/sent/')).length,
-    failed: names.filter(name => name.includes('/failed/')).length,
-    uncertain: names.filter(name => name.includes('/uncertain/')).length,
-  };
+  const history = await postingHistory(day);
+  return { sent: new Set(history.map(record => record.slot)).size };
 }
