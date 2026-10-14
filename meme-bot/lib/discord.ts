@@ -1,4 +1,5 @@
 import { setTimeout as wait } from 'node:timers/promises';
+import type { SourcedMeme } from './sources.ts';
 
 export class DiscordFailure extends Error {
   status: number;
@@ -22,7 +23,7 @@ export async function discordRequest(path: string, init: RequestInit = {}) {
   const { token } = config();
   const response = await fetch(`https://discord.com/api/v10${path}`, {
     ...init, cache: 'no-store', signal: AbortSignal.timeout(15_000),
-    headers: { ...init.headers, Authorization: `Bot ${token}` },
+    headers: { 'User-Agent': 'DiscordBot (https://github.com/saintrey-lang/daily-check-in-bot, 1.1)', ...init.headers, Authorization: `Bot ${token}` },
   });
   if (!response.ok) {
     const body = response.status === 429 ? await response.json().catch(() => ({})) : {};
@@ -38,19 +39,22 @@ export async function validateChannel() {
   return channel;
 }
 
-export async function sendMeme(image: Buffer, day: string, slot: number) {
+export async function sendMeme(image: Buffer, day: string, slot: number, sourced?: SourcedMeme) {
   const { channelId } = config();
   const form = new FormData();
-  const filename = `tft-golden-spatula-${day}-${String(slot + 1).padStart(3, '0')}.png`;
+  const filename = `tft-golden-spatula-${day}-${String(slot + 1).padStart(3, '0')}.${sourced?.extension ?? 'png'}`;
+  const credit = sourced?.source;
   form.append('payload_json', JSON.stringify({
     nonce: `meme-${day}-${slot}`, enforce_nonce: true,
     allowed_mentions: { parse: [] },
-    attachments: [{ id: 0, filename, description: 'Original TFT and Golden Spatula gameplay meme' }],
+    attachments: [{ id: 0, filename, description: credit ? `${credit.title} — ${credit.creator}`.slice(0, 1000) : 'Original TFT and Golden Spatula gameplay meme' }],
     embeds: [{ image: { url: `attachment://${filename}` }, color: 0xf4b942,
+      ...(credit ? { title: credit.title, url: credit.sourceUrl,
+        description: `Source: [${credit.creator}](${credit.sourceUrl})` } : {}),
       footer: { text: `TFT & Golden Spatula | ${day} | ${slot + 1}/100` },
     }],
   }));
-  form.append('files[0]', new Blob([new Uint8Array(image)], { type: 'image/png' }), filename);
+  form.append('files[0]', new Blob([new Uint8Array(image)], { type: sourced?.contentType ?? 'image/png' }), filename);
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       return await discordRequest(`/channels/${channelId}/messages`, { method: 'POST', body: form });

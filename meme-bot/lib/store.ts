@@ -1,6 +1,7 @@
 import { config, discordRequest } from './discord.ts';
+import { sourceKey } from './sources.ts';
 
-export type PostedMeme = { day: string; slot: number; id: string; timestamp: string };
+export type PostedMeme = { day: string; slot: number; id: string; timestamp: string; sourceKey?: string };
 const MARKER = /^TFT & Golden Spatula \| (\d{4}-\d{2}-\d{2}) \| (\d{1,3})\/100$/;
 
 export function messageMeme(message: Record<string, any>, botId: string): PostedMeme | null {
@@ -8,10 +9,32 @@ export function messageMeme(message: Record<string, any>, botId: string): Posted
   for (const embed of message.embeds ?? []) {
     const match = MARKER.exec(embed.footer?.text ?? '');
     if (match && Number(match[2]) >= 1 && Number(match[2]) <= 100) {
-      return { day: match[1], slot: Number(match[2]) - 1, id: message.id, timestamp: message.timestamp };
+      return { day: match[1], slot: Number(match[2]) - 1, id: message.id, timestamp: message.timestamp,
+        ...(sourceKey(embed.url ?? '') ? { sourceKey: sourceKey(embed.url)! } : {}) };
     }
   }
   return null;
+}
+
+export async function recentSourceKeys(now = new Date()): Promise<Set<string>> {
+  const { channelId, botId } = config();
+  const cutoff = now.getTime() - 7 * 86_400_000;
+  const keys = new Set<string>();
+  let before: string | undefined;
+  for (let page = 0; page < 10; page++) {
+    const messages = await discordRequest(`/channels/${channelId}/messages?limit=100${before ? '&before=' + before : ''}`);
+    if (!Array.isArray(messages)) throw new Error('Discord source history response is invalid');
+    for (const message of messages) {
+      if (message.author?.id !== botId || Date.parse(message.timestamp) < cutoff) continue;
+      for (const embed of message.embeds ?? []) {
+        const key = sourceKey(embed.url ?? '');
+        if (key) keys.add(key);
+      }
+    }
+    if (messages.length < 100 || Date.parse(messages[messages.length - 1].timestamp) < cutoff) return keys;
+    before = messages[messages.length - 1].id;
+  }
+  throw new Error('Cannot safely verify recent sourced posts');
 }
 
 export async function postingHistory(day: string): Promise<PostedMeme[]> {
@@ -61,5 +84,7 @@ export async function setPaused(paused: boolean) {
 
 export async function postingCounts(day: string) {
   const history = await postingHistory(day);
-  return { sent: new Set(history.map(record => record.slot)).size };
+  const unique = [...new Map(history.map(record => [record.slot, record])).values()];
+  const sourced = unique.filter(record => record.sourceKey).length;
+  return { sent: unique.length, sourced, generated: unique.length - sourced };
 }
