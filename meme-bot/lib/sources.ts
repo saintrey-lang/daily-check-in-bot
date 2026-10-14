@@ -4,7 +4,7 @@ import { SOURCE_SEED } from './source-seed.ts';
 export type MemeSource = { title: string; sourceUrl: string; imageUrl: string; creator: string };
 export type SourcedMeme = { image: Buffer; contentType: string; extension: string; source: MemeSource };
 export const SOURCE_MODE = 'sourced-first';
-export const TENOR_FEED = 'https://tenor.com/official/TeamfightTactics';
+export const TENOR_FEED = 'https://tenor.com/official/teamfighttactics';
 const MAX_IMAGE_BYTES = 4_000_000;
 const AGENT = 'TFTMemeBot/1.1 (+https://github.com/saintrey-lang/daily-check-in-bot)';
 const CURATED: MemeSource[] = [
@@ -49,7 +49,9 @@ export function parseOfficialTenor(html: string): MemeSource[] {
       const blocked = /nsfw|adult|explicit|spoiler/i.test(JSON.stringify([row.flags, row.tags, row.h1_title]))
         || (row.policy_status && !['POLICY_STATUS_UNSPECIFIED', 'POLICY_STATUS_ALLOWED'].includes(row.policy_status));
       const relevant = /team\s*fight\s*tactics|\btft\b|pengu/i.test(JSON.stringify(row.tags ?? []));
-      const format = [row.media_formats?.gif, row.media_formats?.tinygif]
+      const full = row.media_formats?.gif;
+      const formats = Number(full?.size) <= 1_000_000 ? [full, row.media_formats?.tinygif] : [row.media_formats?.tinygif, full];
+      const format = formats
         .find(item => typeof item?.url === 'string' && validImageUrl(item.url) && Number(item.size) > 0 && Number(item.size) <= MAX_IMAGE_BYTES);
       const key = sourceKey(row.itemurl);
       if (!blocked && relevant && format && key) found.set(key, {
@@ -102,7 +104,7 @@ export async function sourcePool(): Promise<MemeSource[]> {
 export async function downloadSource(source: MemeSource): Promise<SourcedMeme> {
   if (!sourceKey(source.sourceUrl) || !validImageUrl(source.imageUrl)) throw new Error('Unapproved meme source');
   const response = await fetch(source.imageUrl, {
-    headers: { 'User-Agent': AGENT }, redirect: 'error', signal: AbortSignal.timeout(7_000),
+    headers: { 'User-Agent': AGENT }, redirect: 'error', signal: AbortSignal.timeout(10_000),
     next: { revalidate: 86400 },
   } as RequestInit);
   if (!response.ok || !/^image\/(png|jpeg|gif|webp)(;|$)/i.test(response.headers.get('content-type') ?? '')) throw new Error('Source image unavailable');
@@ -120,7 +122,7 @@ export async function pickSourcedMeme(excluded: Set<string>, slot = 0): Promise<
   const reactions = pool.filter(source => !sourceKey(source.sourceUrl)!.startsWith('x:'));
   // Spreading slots across the pool reduces overlap if delayed cron jobs run together.
   if (reactions.length) reactions.push(...reactions.splice(0, slot % reactions.length));
-  for (const source of [...curated, ...reactions].slice(0, 3)) {
+  for (const source of [...curated, ...reactions].slice(0, 2)) {
     try { return await downloadSource(source); }
     catch { console.warn('A sourced meme was unavailable; trying another'); }
   }

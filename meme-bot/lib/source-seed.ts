@@ -93,7 +93,7 @@ export const SOURCE_SEED = [
   {
     "title": "Happy Pengu GIF",
     "sourceUrl": "https://tenor.com/view/happy-pengu-teamfight-tactics-smiling-tft-gif-18082787714726190809",
-    "imageUrl": "https://media1.tenor.com/m/-vL3nq0NXtkAAAAC/happy-pengu.gif",
+    "imageUrl": "https://media.tenor.com/-vL3nq0NXtkAAAAM/happy-pengu.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
@@ -111,7 +111,7 @@ export const SOURCE_SEED = [
   {
     "title": "Surprised Pengu GIF",
     "sourceUrl": "https://tenor.com/view/surprised-pengu-teamfight-tactics-amazed-tft-gif-13296572929650063150",
-    "imageUrl": "https://media1.tenor.com/m/uIbqoZnd9y4AAAAC/surprised-pengu.gif",
+    "imageUrl": "https://media.tenor.com/uIbqoZnd9y4AAAAM/surprised-pengu.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
@@ -141,7 +141,7 @@ export const SOURCE_SEED = [
   {
     "title": "Crying Pengu GIF",
     "sourceUrl": "https://tenor.com/view/crying-pengu-teamfight-tactics-sad-in-shock-gif-15435575891438802810",
-    "imageUrl": "https://media1.tenor.com/m/1jYuffjLF3oAAAAC/crying-pengu.gif",
+    "imageUrl": "https://media.tenor.com/1jYuffjLF3oAAAAM/crying-pengu.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
@@ -165,7 +165,7 @@ export const SOURCE_SEED = [
   {
     "title": "I Will Defend You Kobuko GIF",
     "sourceUrl": "https://tenor.com/view/i-will-defend-you-kobuko-pengu-teamfight-tactics-get-behind-me-gif-14145762203252952376",
-    "imageUrl": "https://media1.tenor.com/m/xE_XxsIKDTgAAAAC/i-will-defend-you-kobuko.gif",
+    "imageUrl": "https://media.tenor.com/xE_XxsIKDTgAAAAM/i-will-defend-you-kobuko.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
@@ -183,19 +183,19 @@ export const SOURCE_SEED = [
   {
     "title": "Surprised Kobuko GIF",
     "sourceUrl": "https://tenor.com/view/surprised-kobuko-teamfight-tactics-huh-tft-gif-11993428310635795556",
-    "imageUrl": "https://media1.tenor.com/m/pnE3gS6PVGQAAAAC/surprised-kobuko.gif",
+    "imageUrl": "https://media.tenor.com/pnE3gS6PVGQAAAAM/surprised-kobuko.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
     "title": "Happy Pengu GIF",
     "sourceUrl": "https://tenor.com/view/happy-pengu-teamfight-tactics-glad-tft-gif-4036362448292024195",
-    "imageUrl": "https://media1.tenor.com/m/OAQKQtssD4MAAAAC/happy-pengu.gif",
+    "imageUrl": "https://media.tenor.com/OAQKQtssD4MAAAAM/happy-pengu.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
     "title": "Lend A Hand Kobuko GIF",
     "sourceUrl": "https://tenor.com/view/lend-a-hand-kobuko-teamfight-tactics-take-my-hand-tft-gif-16220931616299176768",
-    "imageUrl": "https://media1.tenor.com/m/4RxTXONqU0AAAAAC/lend-a-hand-kobuko.gif",
+    "imageUrl": "https://media.tenor.com/4RxTXONqU0AAAAAM/lend-a-hand-kobuko.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
@@ -207,13 +207,13 @@ export const SOURCE_SEED = [
   {
     "title": "Enjoying The Music Choncc GIF",
     "sourceUrl": "https://tenor.com/view/enjoying-the-music-choncc-teamfight-tactics-tft-remix-rumble-gif-17642392070121396625",
-    "imageUrl": "https://media1.tenor.com/m/9NZeHUfBGZEAAAAC/enjoying-the-music-choncc.gif",
+    "imageUrl": "https://media.tenor.com/9NZeHUfBGZEAAAAM/enjoying-the-music-choncc.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
     "title": "Phew Pengu GIF",
     "sourceUrl": "https://tenor.com/view/phew-pengu-teamfight-tactics-tft-remix-rumble-gif-9963099251432685898",
-    "imageUrl": "https://media1.tenor.com/m/ikQJ-3-bAUoAAAAC/phew-pengu.gif",
+    "imageUrl": "https://media.tenor.com/ikQJ-3-bAUoAAAAM/phew-pengu.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
@@ -237,13 +237,13 @@ export const SOURCE_SEED = [
   {
     "title": "Getting Smashed With Cake Amumu GIF",
     "sourceUrl": "https://tenor.com/view/getting-smashed-with-cake-amumu-teamfight-tactics-tft-remix-rumble-gif-13830769931454328241",
-    "imageUrl": "https://media1.tenor.com/m/v_DD-V59LbEAAAAC/getting-smashed-with-cake-amumu.gif",
+    "imageUrl": "https://media.tenor.com/v_DD-V59LbEAAAAM/getting-smashed-with-cake-amumu.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
     "title": "Throwing A Cake Pengu GIF",
     "sourceUrl": "https://tenor.com/view/throwing-a-cake-pengu-teamfight-tactics-tft-remix-rumble-gif-9111331258685548861",
-    "imageUrl": "https://media1.tenor.com/m/fnHzgYDdaT0AAAAC/throwing-a-cake-pengu.gif",
+    "imageUrl": "https://media.tenor.com/fnHzgYDdaT0AAAAM/throwing-a-cake-pengu.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
@@ -261,7 +261,7 @@ export const SOURCE_SEED = [
   {
     "title": "Being Consumed By Monsters Yasuo GIF",
     "sourceUrl": "https://tenor.com/view/being-consumed-by-monsters-yasuo-teamfight-tactics-tft-remix-rumble-gif-11186783625420540697",
-    "imageUrl": "https://media1.tenor.com/m/mz9wb-xZCxkAAAAC/being-consumed-by-monsters-yasuo.gif",
+    "imageUrl": "https://media.tenor.com/mz9wb-xZCxkAAAAM/being-consumed-by-monsters-yasuo.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
@@ -279,7 +279,7 @@ export const SOURCE_SEED = [
   {
     "title": "Dj Teamfight Tactics GIF",
     "sourceUrl": "https://tenor.com/view/dj-teamfight-tactics-tft-remix-rumble-playing-a-song-gif-2187779704734702206",
-    "imageUrl": "https://media1.tenor.com/m/HlyODNOFWn4AAAAC/dj-teamfight-tactics.gif",
+    "imageUrl": "https://media.tenor.com/HlyODNOFWn4AAAAM/dj-teamfight-tactics.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
@@ -369,37 +369,37 @@ export const SOURCE_SEED = [
   {
     "title": "Posing With A Sword Yone Sticker",
     "sourceUrl": "https://tenor.com/view/posing-with-a-sword-yone-teamfight-tactics-ready-to-strike-set-15-gif-13095383249428860661",
-    "imageUrl": "https://media1.tenor.com/m/tbwlrtvOzvUAAAAC/posing-with-a-sword-yone.gif",
+    "imageUrl": "https://media.tenor.com/tbwlrtvOzvUAAAAM/posing-with-a-sword-yone.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
     "title": "Rise Yone Sticker",
     "sourceUrl": "https://tenor.com/view/rise-yone-teamfight-tactics-appear-show-up-gif-13483315619740937126",
-    "imageUrl": "https://media1.tenor.com/m/ux5cHlUia6YAAAAC/rise-yone.gif",
+    "imageUrl": "https://media.tenor.com/ux5cHlUia6YAAAAM/rise-yone.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
     "title": "Angry Volibear Sticker",
     "sourceUrl": "https://tenor.com/view/angry-volibear-teamfight-tactics-mad-roar-gif-4514779062976877226",
-    "imageUrl": "https://media1.tenor.com/m/Pqe3ozAbkqoAAAAC/angry-volibear.gif",
+    "imageUrl": "https://media.tenor.com/Pqe3ozAbkqoAAAAM/angry-volibear.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
     "title": "Performing Thresh Sticker",
     "sourceUrl": "https://tenor.com/view/performing-thresh-teamfight-tactics-holding-a-mic-set-15-gif-11205745834608548427",
-    "imageUrl": "https://media1.tenor.com/m/m4LOd0sn2ksAAAAC/performing-thresh.gif",
+    "imageUrl": "https://media.tenor.com/m4LOd0sn2ksAAAAM/performing-thresh.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
     "title": "Singing Seraphine Sticker",
     "sourceUrl": "https://tenor.com/view/singing-seraphine-teamfight-tactics-performing-set-15-gif-13312020505849730013",
-    "imageUrl": "https://media1.tenor.com/m/uL3MHrXjk90AAAAC/singing-seraphine.gif",
+    "imageUrl": "https://media.tenor.com/uL3MHrXjk90AAAAM/singing-seraphine.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
     "title": "Running Seraphine Sticker",
     "sourceUrl": "https://tenor.com/view/running-seraphine-teamfight-tactics-dashing-set-15-gif-17694049867296890200",
-    "imageUrl": "https://media1.tenor.com/m/9Y3km3JHXVgAAAAC/running-seraphine.gif",
+    "imageUrl": "https://media.tenor.com/9Y3km3JHXVgAAAAM/running-seraphine.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
@@ -417,7 +417,7 @@ export const SOURCE_SEED = [
   {
     "title": "Running Pengu Sticker",
     "sourceUrl": "https://tenor.com/view/running-pengu-teamfight-tactics-dashing-set-15-gif-10641643153420847673",
-    "imageUrl": "https://media1.tenor.com/m/k662EPIeCjkAAAAC/running-pengu.gif",
+    "imageUrl": "https://media.tenor.com/k662EPIeCjkAAAAM/running-pengu.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
@@ -429,31 +429,31 @@ export const SOURCE_SEED = [
   {
     "title": "Appear Galio Sticker",
     "sourceUrl": "https://tenor.com/view/appear-galio-teamfight-tactics-show-up-set-15-gif-1861715308701464959",
-    "imageUrl": "https://media1.tenor.com/m/GdYkNaAOuX8AAAAC/appear-galio.gif",
+    "imageUrl": "https://media.tenor.com/GdYkNaAOuX8AAAAM/appear-galio.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
     "title": "Using Powers Ezreal Sticker",
     "sourceUrl": "https://tenor.com/view/using-powers-ezreal-teamfight-tactics-about-to-shoot-set-15-gif-389501203222667835",
-    "imageUrl": "https://media1.tenor.com/m/BWfJR9msojsAAAAC/using-powers-ezreal.gif",
+    "imageUrl": "https://media.tenor.com/BWfJR9msojsAAAAM/using-powers-ezreal.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
     "title": "Running Ezreal Sticker",
     "sourceUrl": "https://tenor.com/view/running-ezreal-teamfight-tactics-dashing-set-15-gif-11158001657457086788",
-    "imageUrl": "https://media1.tenor.com/m/mtkvY8vzEUQAAAAC/running-ezreal.gif",
+    "imageUrl": "https://media.tenor.com/mtkvY8vzEUQAAAAM/running-ezreal.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
     "title": "Sway Choncc Sticker",
     "sourceUrl": "https://tenor.com/view/sway-choncc-teamfight-tactics-dancing-set-15-gif-7686259188918108274",
-    "imageUrl": "https://media1.tenor.com/m/aqsUAj8LwHIAAAAC/sway-choncc.gif",
+    "imageUrl": "https://media.tenor.com/aqsUAj8LwHIAAAAM/sway-choncc.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
     "title": "Running Choncc Sticker",
     "sourceUrl": "https://tenor.com/view/running-choncc-teamfight-tactics-dashing-set-15-gif-14316871416862147326",
-    "imageUrl": "https://media1.tenor.com/m/xq--sxkDAv4AAAAC/running-choncc.gif",
+    "imageUrl": "https://media.tenor.com/xq--sxkDAv4AAAAM/running-choncc.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
@@ -471,13 +471,13 @@ export const SOURCE_SEED = [
   {
     "title": "Suplex Braum Sticker",
     "sourceUrl": "https://tenor.com/view/suplex-braum-seraphine-teamfight-tactics-wrestle-gif-7807041411020665828",
-    "imageUrl": "https://media1.tenor.com/m/bFguzMKms-QAAAAC/suplex-braum.gif",
+    "imageUrl": "https://media.tenor.com/bFguzMKms-QAAAAM/suplex-braum.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
     "title": "Running Braum Sticker",
     "sourceUrl": "https://tenor.com/view/running-braum-teamfight-tactics-dashing-set-15-gif-6424794664881909220",
-    "imageUrl": "https://media1.tenor.com/m/WSl0tSscbeQAAAAC/running-braum.gif",
+    "imageUrl": "https://media.tenor.com/WSl0tSscbeQAAAAM/running-braum.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
@@ -489,37 +489,37 @@ export const SOURCE_SEED = [
   {
     "title": "Zooming In And Out Whisker Sticker",
     "sourceUrl": "https://tenor.com/view/zooming-in-and-out-whisker-teamfight-tactics-changing-scale-whisker-tft-gif-6632961281285291884",
-    "imageUrl": "https://media1.tenor.com/m/XA0DJHPt_2wAAAAC/zooming-in-and-out-whisker.gif",
+    "imageUrl": "https://media.tenor.com/XA0DJHPt_2wAAAAM/zooming-in-and-out-whisker.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
     "title": "Wave Whisker Sticker",
     "sourceUrl": "https://tenor.com/view/wave-whisker-teamfight-tactics-curling-whisker-tft-gif-17263384147158402371",
-    "imageUrl": "https://media1.tenor.com/m/75PcaqB8hUMAAAAC/wave-whisker.gif",
+    "imageUrl": "https://media.tenor.com/75PcaqB8hUMAAAAM/wave-whisker.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
     "title": "Swaying Whisker Sticker",
     "sourceUrl": "https://tenor.com/view/swaying-whisker-teamfight-tactics-swinging-whisker-tft-gif-14956522955655303876",
-    "imageUrl": "https://media1.tenor.com/m/z5A-YpbPUsQAAAAC/swaying-whisker.gif",
+    "imageUrl": "https://media.tenor.com/z5A-YpbPUsQAAAAM/swaying-whisker.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
     "title": "Spinning Whisker Sticker",
     "sourceUrl": "https://tenor.com/view/spinning-whisker-teamfight-tactics-rotating-whisker-tft-gif-15486998873241577275",
-    "imageUrl": "https://media1.tenor.com/m/1uzfa-xwZzsAAAAC/spinning-whisker.gif",
+    "imageUrl": "https://media.tenor.com/1uzfa-xwZzsAAAAM/spinning-whisker.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
     "title": "Peeking Whisker Sticker",
     "sourceUrl": "https://tenor.com/view/peeking-whisker-teamfight-tactics-taking-a-look-whisker-tft-gif-9862142566412000930",
-    "imageUrl": "https://media1.tenor.com/m/iN1eaYs_HqIAAAAC/peeking-whisker.gif",
+    "imageUrl": "https://media.tenor.com/iN1eaYs_HqIAAAAM/peeking-whisker.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
     "title": "Floating Whisker Sticker",
     "sourceUrl": "https://tenor.com/view/floating-whisker-teamfight-tactics-flying-whisker-tft-gif-7679180382170683005",
-    "imageUrl": "https://media1.tenor.com/m/apHt3x1uln0AAAAC/floating-whisker.gif",
+    "imageUrl": "https://media.tenor.com/apHt3x1uln0AAAAM/floating-whisker.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
@@ -537,7 +537,7 @@ export const SOURCE_SEED = [
   {
     "title": "Happy Pengu Sticker",
     "sourceUrl": "https://tenor.com/view/happy-pengu-teamfight-tactics-smiling-tft-gif-7817491553374973870",
-    "imageUrl": "https://media1.tenor.com/m/bH1PJiGIL64AAAAC/happy-pengu.gif",
+    "imageUrl": "https://media.tenor.com/bH1PJiGIL64AAAAM/happy-pengu.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
@@ -549,7 +549,7 @@ export const SOURCE_SEED = [
   {
     "title": "Surprised Pengu Sticker",
     "sourceUrl": "https://tenor.com/view/surprised-pengu-teamfight-tactics-amazed-tft-gif-11077347336190362270",
-    "imageUrl": "https://media1.tenor.com/m/mbqktkM_Ap4AAAAC/surprised-pengu.gif",
+    "imageUrl": "https://media.tenor.com/mbqktkM_Ap4AAAAM/surprised-pengu.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
@@ -561,19 +561,19 @@ export const SOURCE_SEED = [
   {
     "title": "Surprised Kobuko Sticker",
     "sourceUrl": "https://tenor.com/view/surprised-kobuko-teamfight-tactics-huh-tft-gif-16918392084309043384",
-    "imageUrl": "https://media1.tenor.com/m/6soz9pQFaLgAAAAC/surprised-kobuko.gif",
+    "imageUrl": "https://media.tenor.com/6soz9pQFaLgAAAAM/surprised-kobuko.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
     "title": "Happy Pengu Sticker",
     "sourceUrl": "https://tenor.com/view/happy-pengu-teamfight-tactics-glad-tft-gif-3819007859826916398",
-    "imageUrl": "https://media1.tenor.com/m/NP_Xah9ofC4AAAAC/happy-pengu.gif",
+    "imageUrl": "https://media.tenor.com/NP_Xah9ofC4AAAAM/happy-pengu.gif",
     "creator": "TeamfightTactics on Tenor"
   },
   {
     "title": "Lend A Hand Kobuko Sticker",
     "sourceUrl": "https://tenor.com/view/lend-a-hand-kobuko-teamfight-tactics-take-my-hand-tft-gif-9071522683471818084",
-    "imageUrl": "https://media1.tenor.com/m/feSF0VA8bWQAAAAC/lend-a-hand-kobuko.gif",
+    "imageUrl": "https://media.tenor.com/feSF0VA8bWQAAAAM/lend-a-hand-kobuko.gif",
     "creator": "TeamfightTactics on Tenor"
   }
 ];
