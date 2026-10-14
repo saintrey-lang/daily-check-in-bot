@@ -50,7 +50,7 @@ export async function renderMeme(caption: MemeCaption): Promise<Buffer> {
     <path d="M45 60l18-18M35 50l18-18" stroke="${accent}" stroke-width="5"/>
   </svg>`;
   const [header, top, bottom, left, right, footer] = await Promise.all([
-    textLayer('TFT  /  GOLDEN SPATULA', 24, 900, 35, accent),
+    textLayer(caption.top.includes('Golden Spatula') ? 'GOLDEN SPATULA' : 'TFT  /  GOLDEN SPATULA', 24, 900, 35, accent),
     textLayer(caption.top, 48, 960, 170), textLayer(caption.bottom, 46, 960, 176),
     textLayer('THE PLAN', 25, 400, 40, accent), textLayer('THE REALITY', 25, 400, 40, accent),
     textLayer('DAILY MEMES  ·  JUST ONE MORE GAME', 18, 960, 28, '#a8bbcf'),

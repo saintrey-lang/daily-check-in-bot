@@ -1,4 +1,4 @@
-import { pickMeme } from './catalog.ts';
+import { pickGoldenSpatulaMeme as pickMeme } from './catalog.ts';
 import { DiscordFailure, sendMeme, validateChannel } from './discord.ts';
 import { renderMeme } from './render.ts';
 import { scheduledInstance } from './schedule.ts';

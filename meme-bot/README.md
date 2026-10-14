@@ -2,9 +2,11 @@
 
 Vercel-hosted Discord image meme service. The target is **100 posts per day** in the configured text channel, using the Asia/Manila calendar day.
 
-It prioritizes existing TFT image memes and reaction GIFs from official TFT sources. Each sourced post preserves the image or animation and credits the original creator with a source link. The official `TeamfightTactics` Tenor page is refreshed hourly; a verified list of official posts is available during discovery outages, alongside three curated @TFT image memes. General gaming, unrelated, flagged NSFW, and spoiler content is excluded.
+It prioritizes **Golden Spatula** content in this order: Golden Spatula-tagged sourced images/GIFs, sourced TFT content, then generated Golden Spatula memes. Golden Spatula discovery is restricted to reviewed community creators on Tenor and requires an explicit Golden Spatula game tag. Cooking, SpongeBob, and URF results are rejected. A reviewed starting list contains 17 Golden Spatula posts. The official TFT Tenor page and three curated @TFT image memes provide sourced backups.
 
-The bot checks its own channel posts from the last seven days before selecting a source, including the earlier manually posted sample. When suitable unused sources are exhausted or unavailable, it generates a backup gameplay meme from 240 original captions. The 100-post target is a total of sourced and generated posts; it does not guarantee 100 newly published external memes every day. It uses no paid image-generation API and does not require Reddit or X API credentials for these public source images.
+Each sourced post preserves the image or animation and credits its actual creator with a source link. Both public Tenor feeds refresh hourly, with reviewed source lists available during outages. General gaming, unrelated, flagged NSFW, and spoiler content is excluded.
+
+The bot checks its own channel posts from the last seven days before selecting a source, including earlier manually posted samples. When suitable unused sources are exhausted or unavailable, the generated backup uses Golden Spatula jokes from the original caption catalog. The 100-post target is a total of sourced and generated posts; it does not guarantee 100 newly published external Golden Spatula memes every day. It uses no paid image-generation API and does not require Reddit or X API credentials for these public source images.
 
 ## Hosting and schedule
 

@@ -8,5 +8,5 @@ export async function GET(request: Request) {
   if (!authorized(request)) return Response.json({ error: 'Unauthorized' }, { status: 401 });
   const day = localDay();
   const [counts, paused] = await Promise.all([postingCounts(day), isPaused()]);
-  return Response.json({ day, timezone: TIMEZONE, target: 100, counts, paused, contentMode: SOURCE_MODE, enabled: process.env.MEME_BOT_ENABLED === 'true' });
+  return Response.json({ day, timezone: TIMEZONE, target: 100, counts, paused, contentMode: SOURCE_MODE, priorityGame: 'Golden Spatula', enabled: process.env.MEME_BOT_ENABLED === 'true' });
 }

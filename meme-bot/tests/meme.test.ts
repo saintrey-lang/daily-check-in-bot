@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import sharp from 'sharp';
 import { authorized } from '../lib/auth.ts';
-import { CAPTION_COUNT, pickMeme } from '../lib/catalog.ts';
+import { CAPTION_COUNT, pickMeme, pickGoldenSpatulaMeme } from '../lib/catalog.ts';
 import { config, DiscordFailure, sendMeme } from '../lib/discord.ts';
 import { postSlot, dependencies } from '../lib/post.ts';
 import { renderMeme } from '../lib/render.ts';
 import { messageMeme, postingHistory, recentSourceKeys, type PostedMeme } from '../lib/store.ts';
-import { limitedBody, parseOfficialTenor, sourceKey, validImageUrl, type SourcedMeme } from '../lib/sources.ts';
+import { limitedBody, parseOfficialTenor, parseGoldenSpatulaTenor, prioritizedSources, sourceKey, validImageUrl, type SourcedMeme } from '../lib/sources.ts';
 import { cronDefinitions, currentSlot, DAILY_LIMIT, localDay, scheduledInstance, SLOT_MINUTES, validSlot } from '../lib/schedule.ts';
 
 const now = new Date('2026-10-14T04:00:00Z');
@@ -270,4 +270,32 @@ test('source downloads enforce the body-size limit even when the server omits co
     controller.enqueue(new Uint8Array(12)); controller.close();
   } }));
   await assert.rejects(limitedBody(response, 10), /size limit/);
+});
+
+test('Golden Spatula sources outrank TFT regardless of input order or rotation', () => {
+  const tft = sourcedFixture.source;
+  const golden = { ...tft, sourceUrl: 'https://tenor.com/view/ezreal-golden-spatula-gif-999999', game: 'golden-spatula' as const };
+  for (const slot of [0, 7, 57, 99]) {
+    assert.equal(prioritizedSources([tft, golden], new Set(), slot)[0], golden);
+    assert.deepEqual(prioritizedSources([tft, golden], new Set(['tenor:999999']), slot), [tft]);
+  }
+});
+
+test('Golden Spatula discovery requires the game tag and a reviewed creator', () => {
+  const row = { user: { username: 'fallcome', usertype: 'user' }, itemurl: sourcedFixture.source.sourceUrl,
+    h1_title: 'Golden Spatula Ezreal', tags: ['Golden Spatula', 'TFT'], flags: [],
+    media_formats: { gif: { url: sourcedFixture.source.imageUrl, size: 200_000 } } };
+  const rows = [row, { ...row, user: { username: 'unknown', usertype: 'user' } },
+    { ...row, tags: ['spatula', 'spongebob'] }, { ...row, tags: ['Golden Spatula', 'URF'] },
+    { ...row, flags: ['nsfw'] }, { ...row, tags: ['TFT'] }];
+  const parsed = parseGoldenSpatulaTenor(`<script id="store-cache">${JSON.stringify({ results: rows })}</script>`);
+  assert.equal(parsed.length, 1);
+  assert.equal(parsed[0].game, 'golden-spatula');
+  assert.equal(parsed[0].creator, 'fallcome on Tenor');
+});
+
+test('the generated backup uses 100 distinct Golden Spatula jokes per daily schedule', () => {
+  const batch = Array.from({ length: 100 }, (_, slot) => pickGoldenSpatulaMeme('2026-10-14', slot));
+  assert.equal(new Set(batch.map(caption => caption.id)).size, 100);
+  assert.ok(batch.every(caption => caption.top.includes('Golden Spatula') && !caption.top.includes('TFT')));
 });

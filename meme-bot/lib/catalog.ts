@@ -185,6 +185,14 @@ const topics: [string, string[]][] = [
 ];
 
 export const CAPTION_COUNT = topics.reduce((sum, [, punches]) => sum + punches.length, 0);
+const goldenSpatulaCaptions = topics.filter(([top]) => top.includes('Golden Spatula'))
+  .flatMap(([top, punches]) => punches.map(bottom => ({ top, bottom })));
+
+export function pickGoldenSpatulaMeme(day: string, slot: number): MemeCaption {
+  const dayNumber = Math.floor(Date.parse(day + 'T00:00:00Z') / 86_400_000);
+  const id = ((dayNumber * 100 + slot) % goldenSpatulaCaptions.length + goldenSpatulaCaptions.length) % goldenSpatulaCaptions.length;
+  return { ...goldenSpatulaCaptions[id], mood: (dayNumber + slot) % 4, id };
+}
 
 export function pickMeme(day: string, slot: number): MemeCaption {
   const dayNumber = Math.floor(Date.parse(day + 'T00:00:00Z') / 86_400_000);

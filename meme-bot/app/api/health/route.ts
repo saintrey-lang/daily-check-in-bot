@@ -3,7 +3,7 @@ import { config, discordRequest, validateChannel, DiscordFailure } from '../../.
 import { isPaused, postingCounts } from '../../../lib/store.ts';
 import { localDay } from '../../../lib/schedule.ts';
 import { CAPTION_COUNT } from '../../../lib/catalog.ts';
-import { SOURCE_MODE, TENOR_FEED } from '../../../lib/sources.ts';
+import { SOURCE_MODE, SOURCE_PRIORITY, GOLDEN_SPATULA_FEED, TENOR_FEED } from '../../../lib/sources.ts';
 
 export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
@@ -17,7 +17,8 @@ export async function GET(request: Request) {
     return Response.json({ ready: true, botId: user.id, botName: user.username, guildId, channelId,
       channelName: channel.name, enabled: process.env.MEME_BOT_ENABLED === 'true', paused,
       target: 100, counts, captionCount: CAPTION_COUNT, topic: 'TFT and Golden Spatula',
-      contentMode: SOURCE_MODE, liveSource: TENOR_FEED, generatedFallback: true });
+      contentMode: SOURCE_MODE, priorityGame: 'Golden Spatula', sourcePriority: SOURCE_PRIORITY,
+      liveSources: [GOLDEN_SPATULA_FEED, TENOR_FEED], generatedFallback: true });
   } catch (error) {
     const status = error instanceof DiscordFailure ? error.status : null;
     return Response.json({ ready: false, discordStatus: status,
