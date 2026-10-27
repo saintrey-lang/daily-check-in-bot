@@ -1,0 +1,13 @@
+FROM node:24-alpine
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+COPY tsconfig.json ./
+COPY lib ./lib
+COPY checkin-worker ./checkin-worker
+
+ENV NODE_ENV=production
+CMD ["npm", "run", "worker"]
