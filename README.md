@@ -20,7 +20,7 @@ This project has a Vercel team-protected dashboard and a separate, continuously 
 
 ## Server statistics
 
-- The same Railway worker collects new **member message counts and voice time** across the configured Discord server. It excludes bot messages and never saves message text. Counts begin when the updated worker connects; they cannot reconstruct Statbot's earlier data.
+- The same persistent worker collects new **member message counts and voice time** across the configured Discord server. It excludes bot messages and never saves message text. Counts begin when the updated worker connects; they cannot reconstruct Statbot's earlier data.
 - The **SERVER STATS** dashboard tab shows totals, active members, daily activity, and per-member/per-channel breakdowns over the last 7 or 30 local days. The worker batches counts into `ServerStats` in the check-in Google Sheet about once per minute. A brief outage can lose the unsaved interval; a failed Sheet write is retried with the same row IDs to prevent double-counting.
 - Set a report channel ID, daily or weekly frequency, and time in the dashboard. The first post waits for the next scheduled time. Weekly reports cover the preceding Monday–Sunday and post on Monday at the selected time in `CHECKIN_TIMEZONE` (default `Asia/Manila`); daily reports cover the preceding day. The report channel must grant **View Channel**, **Send Messages**, **Embed Links**, and **Read Message History**. Leave the channel ID empty to pause posts while retaining tracking.
 - The worker also creates `ServerStatsConfig` in the same Sheet. Do not rename its columns. Deleting rows from `ServerStats` removes those counts from future dashboard views and reports.
@@ -37,6 +37,17 @@ This project has a Vercel team-protected dashboard and a separate, continuously 
 7. Wait for worker log `Check-in bot connected as …`. Press **Start Day 1** in the dashboard. Wait for the Day 1 prompt and your selected code in Discord. Type that code as a player: expect `DAY 1 - CHECK-IN VERIFIED`, 14 days left, and a new `Checkins` row. Test each Starplayer category with a link or file and confirm the row and dashboard count.
 
 The existing creator bot deployment can remain in place. Reuse its Discord token and Google service account if they have access to the requested channel and Sheet. Keep credentials out of Git.
+
+## Free persistent worker host (Northflank)
+
+The Vercel dashboard and the Discord worker are separate processes. The Discord worker needs one continuously running instance; it does not need a public port. Northflank's Sandbox plan currently allows an always-on service within its monthly resource allowance.
+
+1. Create a Northflank Sandbox account and link GitHub with access to `saintrey-lang/daily-check-in-bot`. Create a project and a **combined service** from `main`.
+2. Choose **Dockerfile** as the build method and enter `Dockerfile.worker` as the Dockerfile path. Keep **one instance** and **no public ports**. The Dockerfile starts `npm run worker`; do not set the Next.js `npm start` command.
+3. Add the eight runtime variables used on the old worker: `CHECKIN_CHANNEL_ID`, `CHECKIN_GOOGLE_SHEET_ID`, `CHECKIN_GUILD_ID`, `CHECKIN_TIMEZONE`, `DISCORD_BOT_TOKEN`, `GOOGLE_PRIVATE_KEY`, `GOOGLE_SERVICE_ACCOUNT_EMAIL`, and `STARPLAYER_GOOGLE_SHEET_ID`. Copy their values from the previous deployment or your secure credentials store. The worker and Vercel dashboard must point to the same check-in Sheet. Keep secrets out of Git.
+4. Deploy and look for `Check-in bot connected as …`, followed by `Daily check-in prompt ready: Day …`. Send the current code in the check-in channel and confirm a reply and new Sheet row. Also check that server statistics resume. Keep exactly one worker online.
+
+Messages missed while the worker was offline are not counted automatically. The current day's prompt is recovered when the worker reconnects. Check the host's usage against its free allowance; hosting plan limits can change.
 
 ## Local development
 
