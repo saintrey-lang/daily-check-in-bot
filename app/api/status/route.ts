@@ -4,7 +4,7 @@ import { checkinStore } from "@/lib/store";
 export async function GET() {
   try {
     const store = checkinStore();
-    const config = await store.readConfig();
+    const config = await store.readConfig({ fresh: true });
     const now = new Date();
     const window = windowAt(now, config);
     const localDate = localDateAt(now, config.timeZone);

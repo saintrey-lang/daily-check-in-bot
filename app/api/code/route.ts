@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     const body = await request.json() as { revision?: string; day?: number; code?: string };
     const store = checkinStore();
     await store.setup();
-    const current = await store.readConfig();
+    const current = await store.readConfig({ fresh: true });
     if (body.revision !== current.revision) {
       return Response.json({ error: "The codes changed elsewhere. Refresh and try again." }, { status: 409 });
     }

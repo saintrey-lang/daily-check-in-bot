@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     const form = await request.formData();
     const store = checkinStore();
     await store.setup();
-    const current = await store.readConfig();
+    const current = await store.readConfig({ fresh: true });
     if (string(form, "revision") !== current.revision) return Response.json({ error: "The dashboard changed elsewhere. Refresh and try again." }, { status: 409 });
     const now = new Date();
     const timeZone = string(form, "timeZone");

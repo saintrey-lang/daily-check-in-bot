@@ -134,7 +134,10 @@ export default function Dashboard() {
   async function start() {
     setWorking(true); setError(""); setNotification("");
     try {
-      const response = await fetch("/api/start", { method: "POST" });
+      const response = await fetch("/api/start", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revision: status?.config.revision }),
+      });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Start failed.");
       await refresh(true);
@@ -205,6 +208,7 @@ export default function Dashboard() {
   const phase = ended ? "ENDED" : !status?.config.startedAt ? "DRAFT" : scheduled ? "SCHEDULED" : active ? status?.prompt ? "LIVE" : "WAITING FOR BOT" : "COMPLETE";
   const draftCode = codes[(status?.window?.day ?? 1) - 1] ?? status?.window?.code ?? "";
   const pendingCode = Boolean(status?.window && draftCode !== status.window.code);
+  const unsavedCodes = Boolean(status && codes.some((code, index) => code.trim().toUpperCase() !== status.config.codes[index]));
   return <div className="shell">
     <header className="topbar">
       <div className="brand"><span className="brand-mark">✦</span><div><b>GOLDEN SPATULA</b><small>ENCHANTED WILDS</small></div></div>
@@ -245,16 +249,17 @@ export default function Dashboard() {
           <section className="launch"><div><span className="eyebrow">EVENT SCHEDULE</span><h2>{ended ? "This run has ended" : scheduled ? "Day 1 is scheduled" : active ? "Your check-in is running" : phase === "COMPLETE" ? "This run is complete" : "Ready when you are"}</h2><p>{ended ? "No new check-ins are accepted for this run. Earlier check-ins remain in the Sheet." : scheduled ? `Day 1 begins ${status.config.startDate} at ${formatResetTime(status.config.resetTime)} (${status.config.timeZone}).` : active ? status.prompt ? "The daily code is live in Discord." : "The event is open; waiting for the bot to post today's code." : `Press Start to post Day 1 with ${status.config.codes[0]}. Each following day begins at ${formatResetTime(status.config.resetTime)} in ${status.config.timeZone}.`}</p>
             <div className="details"><span><a href="#schedule">Edit codes & time ↗</a></span><span>Discord channel <strong>#{status.config.channelId}</strong></span><span>Sheet <a href={`https://docs.google.com/spreadsheets/d/${status.config.sheetId}/edit`} target="_blank" rel="noreferrer">Open tracking Sheet ↗</a></span></div></div>
             {(active || scheduled) && <button type="button" className="primary end-button" disabled={working} onClick={() => void endRun()}>{working ? "Working…" : "End current run"}</button>}
-            {!active && !scheduled && <button type="button" className="primary start-button" disabled={working} onClick={start}>{working ? "Working…" : status.config.startedAt ? "Start a new run ↗" : "Start Day 1 ↗"}</button>}
+            {!active && !scheduled && <div><button type="button" className="primary start-button" disabled={working || unsavedCodes} onClick={start}>{working ? "Working…" : status.config.startedAt ? "Start a new run ↗" : "Start Day 1 ↗"}</button>{unsavedCodes && <p role="status">Save code changes below before starting.</p>}</div>}
           </section>
           <section className="day-one-controls" aria-label="Reset or schedule Day 1">
             <div><span className="eyebrow">DAY 1 CONTROL</span><h3>Reset or schedule Day 1</h3><p>Starting a new run keeps earlier check-ins in the Sheet. The bot will close the current announcement and post the new Day 1 code when the run starts.</p></div>
             <div className="day-one-actions">
-              <button type="button" className="primary start-button" disabled={working} onClick={() => void resetDayOne()}>{working ? "Working…" : "Reset to Day 1 now ↗"}</button>
+              <button type="button" className="primary start-button" disabled={working || unsavedCodes} onClick={() => void resetDayOne()}>{working ? "Working…" : "Reset to Day 1 now ↗"}</button>
               <label className="field-label">Schedule Day 1 date · {status.config.timeZone}
                 <input type="date" value={scheduledDate} min={localDateAt(new Date(), status.config.timeZone)} onChange={(event) => setScheduledDate(event.target.value)} />
               </label>
-              <button type="button" className="primary" disabled={working || !scheduledDate} onClick={() => void resetDayOne(scheduledDate)}>Schedule at {formatResetTime(status.config.resetTime)} ↗</button>
+              <button type="button" className="primary" disabled={working || unsavedCodes || !scheduledDate} onClick={() => void resetDayOne(scheduledDate)}>Schedule at {formatResetTime(status.config.resetTime)} ↗</button>
+              {unsavedCodes && <p role="status">Save code changes below before resetting or scheduling.</p>}
             </div>
           </section>
           <section className="section-head" id="messages"><div><span className="eyebrow">MESSAGE BUILDER</span><h2>Make every check-in feel like a win.</h2><p>Customize the daily announcement and the player's verified reply. Attach an image or PDF to either message.</p></div></section>

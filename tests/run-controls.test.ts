@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { defaultConfig, endEvent, resetEvent, startEvent, windowAt, type CheckinConfig } from "../lib/checkin/core";
 import { POST as endRun } from "../app/api/end/route";
+import { POST as startRun } from "../app/api/start/route";
+import { CheckinSheetsStore } from "../lib/checkin/sheets";
 import { POST as saveCode } from "../app/api/code/route";
 import { checkinStore } from "../lib/store";
 
@@ -80,5 +82,42 @@ describe("daily check-in run controls", () => {
     const response = await endRun(request("end", { revision: "old-revision" }));
     expect(response.status).toBe(409);
     expect(saveConfig).not.toHaveBeenCalled();
+  });
+
+  it("reads the latest Sheet config even when this process has a cached default", async () => {
+    const old = defaultConfig({ CHECKIN_GOOGLE_SHEET_ID: sheet });
+    const saved = { ...old, codes: ["SUNDAY", ...old.codes.slice(1)], revision: "saved-sunday" };
+    const store = Object.assign(Object.create(CheckinSheetsStore.prototype), {
+      sheetId: sheet,
+      configCache: { value: old, until: Date.now() + 30_000 },
+      values: vi.fn(async () => [["settings", JSON.stringify(saved)]]),
+    }) as CheckinSheetsStore;
+
+    expect((await store.readConfig()).codes[0]).toBe("MONDAY");
+    expect((await store.readConfig({ fresh: true })).codes[0]).toBe("SUNDAY");
+  });
+
+  it("starts Day 1 with the newly saved code across server instances", async () => {
+    vi.useFakeTimers();
+    const now = new Date("2026-11-15T03:30:00Z");
+    vi.setSystemTime(now);
+    const old = defaultConfig({ CHECKIN_GOOGLE_SHEET_ID: sheet });
+    const latest = { ...old, codes: ["SUNDAY", ...old.codes.slice(1)], revision: "saved-sunday" };
+    const readConfig = vi.fn(async ({ fresh = false }: { fresh?: boolean } = {}) => fresh ? latest : old);
+    const saveConfig = vi.fn(async (_config: CheckinConfig) => {});
+    vi.mocked(checkinStore).mockReturnValue({
+      setup: vi.fn(async () => {}), readConfig, saveConfig,
+    } as never);
+
+    const response = await startRun(request("start", { revision: latest.revision }));
+    expect(response.status).toBe(200);
+    expect((await response.json()).code).toBe("SUNDAY");
+    expect(readConfig).toHaveBeenCalledWith({ fresh: true });
+    expect(saveConfig.mock.calls[0][0].codes[0]).toBe("SUNDAY");
+    expect(windowAt(now, saveConfig.mock.calls[0][0])?.code).toBe("SUNDAY");
+
+    const stale = await startRun(request("start", { revision: old.revision }));
+    expect(stale.status).toBe(409);
+    expect(saveConfig).toHaveBeenCalledTimes(1);
   });
 });

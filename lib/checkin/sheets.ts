@@ -106,8 +106,8 @@ export class CheckinSheetsStore {
     }
   }
 
-  async readConfig(): Promise<CheckinConfig> {
-    if (this.configCache && Date.now() < this.configCache.until) return this.configCache.value;
+  async readConfig({ fresh = false }: { fresh?: boolean } = {}): Promise<CheckinConfig> {
+    if (!fresh && this.configCache && Date.now() < this.configCache.until) return this.configCache.value;
     const fallback = defaultConfig({ ...process.env, CHECKIN_GOOGLE_SHEET_ID: this.sheetId });
     const row = (await this.values("CheckinConfig!A2:B2"))[0];
     if (!row?.[1]) {
