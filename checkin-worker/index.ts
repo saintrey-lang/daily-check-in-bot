@@ -73,8 +73,8 @@ async function tick(): Promise<void> {
       try {
         const previous = await channel.messages.fetch(config.supersededPromptId);
         await previous.edit({ embeds: [{
-          color: 0x64748b, title: "Previous check-in closed",
-          description: "The check-in schedule was reset. Use the newest Day 1 announcement to check in when it appears.",
+          color: 0x64748b, title: "Check-in closed",
+          description: "This announcement no longer accepts check-ins. Use the newest active check-in announcement when it appears.",
         }], attachments: [], files: [] });
       } catch (error) {
         // A removed announcement needs no further action.

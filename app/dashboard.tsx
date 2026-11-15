@@ -143,6 +143,42 @@ export default function Dashboard() {
     finally { setWorking(false); }
   }
 
+
+  async function saveTodayCode() {
+    if (!status?.window) return;
+    const code = codes[status.window.day - 1]?.trim().toUpperCase();
+    setWorking(true); setError(""); setNotification("");
+    try {
+      const response = await fetch("/api/code", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revision: status.config.revision, day: status.window.day, code }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not save today's code.");
+      await refresh();
+      setNotification(`Day ${result.day} code saved as ${result.code}. The bot will update today's Discord announcement shortly.`);
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Could not save today's code."); }
+    finally { setWorking(false); }
+  }
+
+  async function endRun() {
+    if (!status || (!status.window && !scheduled)) return;
+    const label = scheduled ? "scheduled" : "current";
+    if (!window.confirm(`End the ${label} check-in run? New check-ins will stop when the bot syncs. The ${status.total} recorded check-ins will remain in the Sheet.`)) return;
+    setWorking(true); setError(""); setNotification("");
+    try {
+      const response = await fetch("/api/end", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revision: status.config.revision }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not end the run.");
+      await refresh(true);
+      setNotification("Run ended. Recorded check-ins remain in the Sheet; the bot will close the current announcement shortly.");
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Could not end the run."); }
+    finally { setWorking(false); }
+  }
+
   async function resetDayOne(date?: string) {
     if (!status) return;
     if (status.total > 0 && !window.confirm(`Start a new run? The ${status.total} check-ins from this run will remain in the Sheet, but the dashboard and bot will track the new run.`)) return;
@@ -164,9 +200,11 @@ export default function Dashboard() {
   }
 
   const active = Boolean(status?.window);
-  const scheduled = Boolean(status?.config.startedAt && Date.parse(status.config.startedAt) > Date.now());
-  const phase = !status?.config.startedAt ? "DRAFT" : scheduled ? "SCHEDULED" : active ? status?.prompt ? "LIVE" : "WAITING FOR BOT" : "COMPLETE";
+  const ended = Boolean(status?.config.endedAt);
+  const scheduled = Boolean(!ended && status?.config.startedAt && Date.parse(status.config.startedAt) > Date.now());
+  const phase = ended ? "ENDED" : !status?.config.startedAt ? "DRAFT" : scheduled ? "SCHEDULED" : active ? status?.prompt ? "LIVE" : "WAITING FOR BOT" : "COMPLETE";
   const draftCode = codes[(status?.window?.day ?? 1) - 1] ?? status?.window?.code ?? "";
+  const pendingCode = Boolean(status?.window && draftCode !== status.window.code);
   return <div className="shell">
     <header className="topbar">
       <div className="brand"><span className="brand-mark">✦</span><div><b>GOLDEN SPATULA</b><small>ENCHANTED WILDS</small></div></div>
@@ -192,11 +230,21 @@ export default function Dashboard() {
         {!status || !prompt || !success ? <div className="loading">Loading your check-in workspace…</div> : <>
           <section className="stats-grid">
             <div className="stat"><span className="eyebrow">CURRENT DAY</span><b>{status.window ? String(status.window.day).padStart(2, "0") : "—"} <small>/ 15</small></b><p>Reset today: {formatResetTime(status.resetTimeToday)} · {status.config.timeZone}</p>{status.pendingTimeChangeDate && <p>New time begins {status.pendingTimeChangeDate}</p>}</div>
-            <div className="stat"><span className="eyebrow">TODAY'S CODE</span><b className="code-stat">{status.window?.code ?? status.config.codes[0]}</b><p>Accepted without case sensitivity</p></div>
+            <div className="stat"><span className="eyebrow">TODAY'S CODE</span><b className="code-stat">{status.window?.code ?? "—"}</b>
+              <p>{status.window ? `Active Day ${status.window.day} · ${status.window.date} (${status.config.timeZone})` : ended ? "Run ended · no active code" : scheduled ? "Day 1 has not started yet" : "No active code"}</p>
+              {status.window && <form className="quick-code" onSubmit={(event) => { event.preventDefault(); void saveTodayCode(); }}>
+                <label className="field-label">Change today's code
+                  <input aria-label="Change today's code" value={draftCode} maxLength={32} pattern="[A-Za-z0-9_-]{2,32}" onChange={(event) => setCodes((previous) => previous.map((value, index) => index === status.window!.day - 1 ? event.target.value.toUpperCase() : value))} required />
+                </label>
+                <button type="submit" disabled={working || !pendingCode || !/^[A-Z0-9_-]{2,32}$/.test(draftCode)}>{working ? "Saving…" : "Save code"}</button>
+              </form>}
+              {pendingCode && <p>Unsaved code · the bot still accepts {status.window?.code} until saved.</p>}
+            </div>
             <div className="stat"><span className="eyebrow">CHECK-INS TODAY</span><b>{status.today}</b><p>{status.total} recorded for this run</p></div>
           </section>
-          <section className="launch"><div><span className="eyebrow">EVENT SCHEDULE</span><h2>{scheduled ? "Day 1 is scheduled" : active ? "Your check-in is running" : "Ready when you are"}</h2><p>{scheduled ? `Day 1 begins ${status.config.startDate} at ${formatResetTime(status.config.resetTime)} (${status.config.timeZone}).` : active ? status.prompt ? "The daily code is live in Discord." : "The event is open; waiting for the bot to post today's code." : `Press Start to post Day 1 with ${status.config.codes[0]}. Each following day begins at ${formatResetTime(status.config.resetTime)} in ${status.config.timeZone}.`}</p>
+          <section className="launch"><div><span className="eyebrow">EVENT SCHEDULE</span><h2>{ended ? "This run has ended" : scheduled ? "Day 1 is scheduled" : active ? "Your check-in is running" : phase === "COMPLETE" ? "This run is complete" : "Ready when you are"}</h2><p>{ended ? "No new check-ins are accepted for this run. Earlier check-ins remain in the Sheet." : scheduled ? `Day 1 begins ${status.config.startDate} at ${formatResetTime(status.config.resetTime)} (${status.config.timeZone}).` : active ? status.prompt ? "The daily code is live in Discord." : "The event is open; waiting for the bot to post today's code." : `Press Start to post Day 1 with ${status.config.codes[0]}. Each following day begins at ${formatResetTime(status.config.resetTime)} in ${status.config.timeZone}.`}</p>
             <div className="details"><span><a href="#schedule">Edit codes & time ↗</a></span><span>Discord channel <strong>#{status.config.channelId}</strong></span><span>Sheet <a href={`https://docs.google.com/spreadsheets/d/${status.config.sheetId}/edit`} target="_blank" rel="noreferrer">Open tracking Sheet ↗</a></span></div></div>
+            {(active || scheduled) && <button type="button" className="primary end-button" disabled={working} onClick={() => void endRun()}>{working ? "Working…" : "End current run"}</button>}
             {!active && !scheduled && <button type="button" className="primary start-button" disabled={working} onClick={start}>{working ? "Working…" : status.config.startedAt ? "Start a new run ↗" : "Start Day 1 ↗"}</button>}
           </section>
           <section className="day-one-controls" aria-label="Reset or schedule Day 1">

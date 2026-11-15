@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     const previousPrompt = previousWindow && current.eventId
       ? await store.getPrompt(current.eventId, previousWindow.day) : null;
     const config = resetEvent(current, now, body.scheduledDate || undefined);
-    config.supersededPromptId = previousPrompt?.messageId ?? null;
+    config.supersededPromptId = previousPrompt?.messageId ?? current.supersededPromptId ?? null;
     await store.saveConfig(config);
     return Response.json({ ok: true, eventId: config.eventId, startedAt: config.startedAt,
       startDate: config.startDate, code: config.codes[0] });

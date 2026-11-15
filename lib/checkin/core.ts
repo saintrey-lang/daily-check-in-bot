@@ -9,7 +9,9 @@ export type EmbedTemplate = { title: string; description: string; color: string;
 export type ResetChange = { date: string; time: string };
 export type CheckinConfig = {
   eventId: string | null;
+  lastEventId?: string | null;
   startedAt: string | null;
+  endedAt?: string | null;
   startDate: string | null;
   channelId: string;
   guildId: string;
@@ -44,7 +46,7 @@ export function defaultConfig(env: Record<string, string | undefined>): CheckinC
   if (!sheetInput) throw new Error("Set CHECKIN_GOOGLE_SHEET_ID to the event's Google Sheet ID or URL.");
   const sheetId = sheetInput.match(/\/spreadsheets\/d\/([\w-]+)/)?.[1] || sheetInput;
   const config: CheckinConfig = {
-    eventId: null, startedAt: null, startDate: null,
+    eventId: null, startedAt: null, endedAt: null, startDate: null,
     channelId: env.CHECKIN_CHANNEL_ID?.trim() || "1503972816079425706",
     guildId: env.CHECKIN_GUILD_ID?.trim() || "1293483684888055840",
     sheetId, timeZone: env.CHECKIN_TIMEZONE?.trim() || "Asia/Manila",
@@ -136,7 +138,8 @@ export function windowDateAt(instant: Date, config: Pick<CheckinConfig, "timeZon
 }
 
 export function windowAt(instant: Date, config: CheckinConfig): CheckinWindow | null {
-  if (!config.startedAt || !config.startDate || !config.eventId || instant.getTime() < Date.parse(config.startedAt)) return null;
+  if (!config.startedAt || !config.startDate || !config.eventId || instant.getTime() < Date.parse(config.startedAt) ||
+      (config.endedAt && instant.getTime() >= Date.parse(config.endedAt))) return null;
   const date = windowDateAt(instant, config);
   const day = civilDay(date) - civilDay(config.startDate) + 1;
   if (day < 1 || day > EVENT_DAYS) return null;
@@ -156,13 +159,13 @@ export function milestoneFor(streak: number): number | null {
 
 export function startEvent(config: CheckinConfig, now: Date): CheckinConfig {
   if (windowAt(now, config)) throw new Error("A check-in event is already running.");
-  if (config.startedAt && Date.parse(config.startedAt) > now.getTime()) throw new Error("An event is already scheduled.");
+  if (!config.endedAt && config.startedAt && Date.parse(config.startedAt) > now.getTime()) throw new Error("An event is already scheduled.");
   validateConfig(config);
   const startDate = windowDateAt(now, { ...config, resetSchedule: [] });
   return {
     ...config,
-    eventId: `checkin-${now.toISOString().replace(/[-:.TZ]/g, "").slice(0, 14)}`,
-    startedAt: now.toISOString(),
+    eventId: `checkin-${now.toISOString().replace(/[-:.TZ]/g, "").slice(0, 14)}-${crypto.randomUUID().slice(0, 8)}`,
+    startedAt: now.toISOString(), endedAt: null,
     startDate,
     resetSchedule: [{ date: startDate, time: config.resetTime }],
     revision: now.toISOString(),
@@ -200,9 +203,16 @@ export function resetEvent(config: CheckinConfig, now: Date, scheduledDate?: str
   return {
     ...config,
     eventId: `checkin-${now.toISOString().replace(/[-:.TZ]/g, "").slice(0, 14)}-${crypto.randomUUID().slice(0, 8)}`,
-    startedAt: start.toISOString(), startDate, resetSchedule,
+    startedAt: start.toISOString(), endedAt: null, startDate, resetSchedule,
     revision: crypto.randomUUID(),
   };
+}
+
+/** Close an active or scheduled run without removing its ID or recorded check-ins. */
+export function endEvent(config: CheckinConfig, now: Date): CheckinConfig {
+  const scheduled = !config.endedAt && !!config.startedAt && Date.parse(config.startedAt) > now.getTime();
+  if (!windowAt(now, config) && !scheduled) throw new Error("There is no active or scheduled check-in run to end.");
+  return { ...config, lastEventId: config.eventId, eventId: null, endedAt: now.toISOString(), revision: crypto.randomUUID() };
 }
 
 function render(template: string, values: Record<string, string>): string {
