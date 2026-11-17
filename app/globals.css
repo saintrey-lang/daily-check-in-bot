@@ -276,6 +276,35 @@ code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 .stats-settings > p, .stats-note { margin: 12px 23px 22px; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .stats-note { margin: 22px 0 0; }
 
+.channel-checklist { scroll-margin-top: 100px; }
+.channel-checklist-controls { display: flex; justify-content: space-between; align-items: end; gap: 20px; margin: 20px 0; padding: 20px 23px; }
+.channel-date-actions { display: flex; align-items: end; flex-wrap: wrap; gap: 9px; margin-top: 11px; }
+.channel-date-actions .field-label { margin: 0; }
+.channel-date-actions input { display: block; width: 175px; margin-top: 7px; padding: 9px 11px; border: 1px solid #5b6998; border-radius: 8px; background: #0f1733; color: #f2f8ff; }
+.channel-date-actions button { min-height: 39px; padding: 0 13px; border: 1px solid #5b6998; border-radius: 8px; background: #233158; color: #e4faff; font-weight: 800; }
+.channel-date-actions button:hover:not(:disabled) { background: #355079; }
+.channel-date-actions button:disabled { opacity: .45; cursor: not-allowed; }
+.channel-period { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; text-align: right; }
+.channel-period strong { color: var(--mint); font: 600 19px "Space Grotesk", sans-serif; }
+.channel-period small { color: var(--muted); font-size: 11px; }
+.channel-checklist-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; }
+.channel-checklist-card { min-height: 190px; }
+.channel-id { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; }
+.channel-card-counts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 23px; }
+.channel-card-counts > div + div { border-left: 1px solid var(--border); padding-left: 14px; }
+.channel-card-counts span, .channel-card-counts small { display: block; color: var(--muted); font-size: 10px; }
+.channel-card-counts span { font-weight: 800; letter-spacing: .05em; }
+.channel-card-counts b { margin: 6px 0 4px; color: var(--mint); font-size: clamp(25px, 2.9vw, 37px); }
+.channel-week-panel { margin-top: 19px; }
+.channel-week-panel .table-scroll { overflow-x: auto; }
+.channel-week-panel table { width: 100%; min-width: 660px; border-collapse: collapse; text-align: left; font-size: 12px; }
+.channel-week-panel th, .channel-week-panel td { padding: 13px 18px; border-bottom: 1px solid var(--border); }
+.channel-week-panel thead th, .channel-week-panel tfoot th { color: #c6dcf0; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+.channel-week-panel td strong { display: block; font-size: 13px; }
+.channel-week-panel td small { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; }
+.channel-week-panel .channel-selected-day { background: #a6f1ff16; }
+.channel-week-panel tfoot th { border-bottom: 0; background: #a6f1ff12; }
+
 .staff-corner { scroll-margin-top: 100px; }
 .staff-sync { margin: 12px 0 20px; color: var(--mint); font-size: 11px; }
 .staff-overview { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 22px 0; }
@@ -329,6 +358,8 @@ code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 @media (max-width: 1050px) {
   .topbar { grid-template-columns: minmax(0, 1fr) auto; }
   .topbar-right { display: none; }
+  .dashboard-tabs { max-width: 100%; overflow-x: auto; }
+  .dashboard-tabs button { padding: 11px 14px; }
 }
 @media (max-width: 760px) {
   .topbar { display: flex; flex-wrap: wrap; gap: 12px; padding: 12px 18px; }
@@ -347,6 +378,7 @@ code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
   .stats-tables { grid-template-columns: 1fr; }
   .stats-settings-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .staff-overview, .staff-ledgers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .channel-checklist-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 480px) {
   .brand b { font-size: 12px; }
@@ -369,4 +401,6 @@ code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
   .stats-settings-fields { grid-template-columns: 1fr; }
   .staff-overview, .staff-ledgers, .staff-totals { grid-template-columns: 1fr; }
   .staff-detail .panel-head { align-items: flex-start; flex-direction: column; }
+  .channel-checklist-controls { align-items: flex-start; flex-direction: column; }
+  .channel-period { align-items: flex-start; text-align: left; }
 }

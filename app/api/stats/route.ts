@@ -1,7 +1,8 @@
 import { defaultConfig, localDateAt } from "@/lib/checkin/core";
 import { requireSameOrigin } from "@/lib/request";
 import { channelDrilldownRows, roleMemberPerformance, shiftDate, statsSummaryRange, validStatsDate, validateStatsConfig, type StatsConfig } from "@/lib/stats/core";
-import { StatsSheetsStore, type StatsDashboardSnapshot } from "@/lib/stats/sheets";
+import { invalidateStatsDashboardSnapshot, statsDashboardSnapshot } from "@/lib/stats/dashboard-snapshot";
+import { StatsSheetsStore } from "@/lib/stats/sheets";
 
 export const dynamic = "force-dynamic";
 
@@ -9,24 +10,9 @@ function store() {
   return new StatsSheetsStore(defaultConfig(process.env).sheetId);
 }
 
-let cached: { value: StatsDashboardSnapshot; at: number } | null = null;
-let pending: { version: number; promise: Promise<StatsDashboardSnapshot> } | null = null;
-let cacheVersion = 0;
-async function snapshot(): Promise<StatsDashboardSnapshot> {
-  if (cached && Date.now() - cached.at < 30_000) return cached.value;
-  if (pending?.version === cacheVersion) return pending.promise;
-  const version = cacheVersion;
-  const promise = store().readDashboardSnapshot().then((value) => {
-    if (version === cacheVersion) cached = { value, at: Date.now() };
-    return value;
-  }).finally(() => { if (pending?.promise === promise) pending = null; });
-  pending = { version, promise };
-  return promise;
-}
-
 export async function GET(request: Request) {
   try {
-    const { rows, history, progress, plan, roles, config, lastReport } = await snapshot();
+    const { rows, history, progress, plan, roles, config, lastReport } = await statsDashboardSnapshot();
     const today = localDateAt(new Date(), process.env.CHECKIN_TIMEZONE?.trim() || "Asia/Manila");
     const params = new URL(request.url).searchParams;
     const period = params.get("period") || "seven";
@@ -76,7 +62,7 @@ export async function POST(request: Request) {
     });
     const sheet = store();
     await sheet.saveConfig(config);
-    cacheVersion++; cached = null; pending = null;
+    invalidateStatsDashboardSnapshot();
     return Response.json({ ok: true, config });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Could not save report schedule." }, { status: 400 });
