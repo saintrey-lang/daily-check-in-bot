@@ -224,7 +224,7 @@ export default function Dashboard() {
       <span className="topbar-right">EVENT CONTROL CENTER <span className="avatar">GS</span></span>
     </header>
     <main className="content">
-      <div className="campaign-hero"><Image className="campaign-art" src="/enchanted-wilds-banner.jpg" alt="Golden Spatula Enchanted Wilds campaign artwork" fill priority sizes="100vw" /><span className="hero-fade" aria-hidden="true" /></div>
+      <div className="campaign-hero"><Image className="campaign-art" src="/anniversary-checkin-banner.jpg" alt="Golden Spatula second anniversary check-in celebration artwork" fill priority sizes="100vw" /><span className="hero-fade" aria-hidden="true" /></div>
       <div className="content-inner">
         <section id="checkin-panel" role="tabpanel" aria-labelledby="checkin-tab" hidden={tab !== "checkin"}>
         <nav className="section-nav" aria-label="Daily check-in sections"><a href="#overview">Overview</a><a href="#messages">Embed messages</a><a href="#schedule">Codes & time</a>{status && <a href={`https://docs.google.com/spreadsheets/d/${status.config.sheetId}/edit`} target="_blank" rel="noreferrer">Check-in Sheet ↗</a>}</nav>

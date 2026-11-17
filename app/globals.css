@@ -353,7 +353,7 @@ code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
   .dashboard-tabs { overflow-x: auto; }
   .dashboard-tabs button { flex: 0 0 auto; font-size: 10px; letter-spacing: .04em; }
   .campaign-hero { height: 255px; }
-  .campaign-art { object-position: 63% 35%; }
+  .campaign-art { object-position: 20% 35%; }
   .section-nav { width: 100%; }
   .section-nav a { flex: 1 1 auto; text-align: center; padding: 8px; }
   .intro-row, .starplayer-heading { align-items: flex-start; flex-direction: column; }
