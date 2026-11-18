@@ -6,7 +6,7 @@ describe("signed game sessions", () => {
   afterEach(() => { vi.useRealTimers(); delete process.env.ARCADE_SIGNING_SECRET; });
 
   it("rejects tampering and expired games", () => {
-    const { token, session } = createSession("puzzle");
+    const { token, session } = createSession("puzzle", "123456789");
     expect(readSession(token)).toEqual(session);
     expect(readSession(`${token.slice(0, -2)}ab`)).toBeNull();
     vi.advanceTimersByTime(2 * 60 * 60 * 1000 + 1);

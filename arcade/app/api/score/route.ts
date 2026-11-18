@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { verifyCrossword, verifyPuzzle } from "@/lib/games";
 import { readSession } from "@/lib/session";
+import { cookies } from "next/headers";
+import { PLAYER_COOKIE, readPlayerCookie } from "@/lib/player";
 
 export const runtime = "nodejs";
 
@@ -9,6 +11,8 @@ const CHANNEL_ID = "1293667554866499676";
 const completed = new Set<string>();
 
 export async function POST(request: Request) {
+  const playerId = readPlayerCookie((await cookies()).get(PLAYER_COOKIE)?.value);
+  if (!playerId) return NextResponse.json({ error: "Enter your Game ID and PIN first." }, { status: 401 });
   let input: { token?: unknown; name?: unknown; letters?: unknown; moves?: unknown };
   try {
     if (Number(request.headers.get("content-length") || 0) > 16000) throw new Error("Too large");
@@ -17,7 +21,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid score submission." }, { status: 400 });
   }
   const session = readSession(input?.token);
-  if (!session) return NextResponse.json({ error: "Game session expired. Start a new game." }, { status: 400 });
+  if (!session || session.playerId !== playerId) return NextResponse.json({ error: "Game session expired. Start a new game." }, { status: 400 });
   if (typeof input.name !== "string" || !/^[\p{L}\p{N} _.-]{2,24}$/u.test(input.name.trim())) {
     return NextResponse.json({ error: "Use a name of 2–24 letters or numbers." }, { status: 400 });
   }
