@@ -1,7 +1,8 @@
 import { GoogleAuth } from "google-auth-library";
 import { checkPin, hashPin } from "./player";
 
-export const PLAYER_HEADERS = ["Game ID", "PIN Hash", "Created At (UTC)", "Last Login At (UTC)", "Failed Attempts", "Locked Until (UTC)"];
+const LEGACY_HEADERS = ["Game ID", "PIN Hash", "Created At (UTC)", "Last Login At (UTC)", "Failed Attempts", "Locked Until (UTC)"];
+export const PLAYER_HEADERS = [...LEGACY_HEADERS, "Name"];
 const TAB = "ArcadePlayers";
 type Values = { values?: unknown[][] };
 type Metadata = { sheets?: Array<{ properties?: { title?: string; sheetId?: number } }> };
@@ -53,30 +54,34 @@ export class ArcadePlayersStore {
         if (!(updated.sheets ?? []).some((sheet) => sheet.properties?.title === TAB)) throw error;
       }
     }
-    const header = (await this.values(`${TAB}!A1:F1`))[0]?.map(String) ?? [];
+    const header = (await this.values(`${TAB}!A1:G1`))[0]?.map(String) ?? [];
+    if (JSON.stringify(header) === JSON.stringify(LEGACY_HEADERS)) {
+      await this.put(`${TAB}!G1`, [["Name"]]);
+      return;
+    }
     if (header.length && JSON.stringify(header) !== JSON.stringify(PLAYER_HEADERS)) throw new Error("ArcadePlayers has unexpected headers");
     if (!header.length) {
       if ((await this.values(`${TAB}!A2:A2`)).length) throw new Error("ArcadePlayers has data below a missing header");
-      await this.put(`${TAB}!A1:F1`, [PLAYER_HEADERS]);
+      await this.put(`${TAB}!A1:G1`, [PLAYER_HEADERS]);
     }
   }
 
   private async find(gameId: string): Promise<{ row: unknown[]; number: number } | null> {
-    const rows = await this.values(`${TAB}!A2:F`);
+    const rows = await this.values(`${TAB}!A2:G`);
     const index = rows.findIndex((row) => String(row[0] ?? "").toUpperCase() === gameId);
     return index < 0 ? null : { row: rows[index], number: index + 2 };
   }
 
-  async register(gameId: string, pin: string): Promise<void> {
+  async register(gameId: string, pin: string, name: string): Promise<void> {
     await this.prepare();
     if (await this.find(gameId)) throw new EntryError("That Game ID already has a PIN. Choose Sign in instead.", 409);
     const now = new Date().toISOString();
-    await this.request(`/values/${encodeURIComponent(`${TAB}!A:F`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, "POST", {
-      range: `${TAB}!A:F`, majorDimension: "ROWS", values: [[gameId, hashPin(pin), now, now, 0, ""]],
+    await this.request(`/values/${encodeURIComponent(`${TAB}!A:G`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, "POST", {
+      range: `${TAB}!A:G`, majorDimension: "ROWS", values: [[gameId, hashPin(pin), now, now, 0, "", name]],
     });
   }
 
-  async login(gameId: string, pin: string): Promise<void> {
+  async login(gameId: string, pin: string, name: string): Promise<void> {
     await this.prepare();
     const found = await this.find(gameId);
     if (!found) throw new EntryError("Game ID or PIN is incorrect.", 401);
@@ -90,6 +95,6 @@ export class ArcadePlayersStore {
       await this.put(`${TAB}!E${found.number}:F${found.number}`, [[attempts, nextLock]]);
       throw new EntryError(attempts >= 5 ? "Too many incorrect PINs. Try again in 15 minutes." : "Game ID or PIN is incorrect.", attempts >= 5 ? 429 : 401);
     }
-    await this.put(`${TAB}!D${found.number}:F${found.number}`, [[new Date().toISOString(), 0, ""]]);
+    await this.put(`${TAB}!D${found.number}:G${found.number}`, [[new Date().toISOString(), 0, "", name]]);
   }
 }

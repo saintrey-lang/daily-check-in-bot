@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { adjacent, crossword, solvedBoard, type Game } from "@/lib/games";
+import { adjacent, crossword, puzzlePicture, puzzlePictures, solvedBoard, type Game, type PuzzlePictureId } from "@/lib/games";
 
 type Result = { score: number; elapsed: number; moves?: number; messageUrl: string };
 type Entry = (typeof crossword.entries)[number];
@@ -25,9 +25,9 @@ function formatTime(seconds: number): string {
   return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
-export default function Arcade({ gameId }: { gameId: string }) {
+export default function Arcade({ gameId, playerName }: { gameId: string; playerName: string }) {
   const [game, setGame] = useState<Game | null>(null);
-  const [name, setName] = useState("");
+  const [pictureId, setPictureId] = useState<PuzzlePictureId>(1);
   const [token, setToken] = useState("");
   const [board, setBoard] = useState<number[]>([]);
   const [moves, setMoves] = useState<number[]>([]);
@@ -47,11 +47,12 @@ export default function Arcade({ gameId }: { gameId: string }) {
     return () => window.clearInterval(interval);
   }, [startedAt, result]);
 
-  async function startGame(nextGame: Game) {
+  async function startGame(nextGame: Game, nextPictureId: PuzzlePictureId = 1) {
     setLoading(true);
     setError("");
     setResult(null);
     setGame(nextGame);
+    if (nextGame === "puzzle") setPictureId(nextPictureId);
     setToken("");
     setLetters({});
     setBoard([]);
@@ -61,7 +62,8 @@ export default function Arcade({ gameId }: { gameId: string }) {
     setStartedAt(0);
     try {
       const response = await fetch("/api/session", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ game: nextGame }),
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ game: nextGame, ...(nextGame === "puzzle" ? { pictureId: nextPictureId } : {}) }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not start the game.");
@@ -82,16 +84,12 @@ export default function Arcade({ gameId }: { gameId: string }) {
 
   async function submitScore() {
     if (!game || !token) return;
-    if (!/^[\p{L}\p{N} _.-]{2,24}$/u.test(name.trim())) {
-      setError("Enter a name of 2–24 letters or numbers first.");
-      return;
-    }
     setError("");
     setSubmitting(true);
     try {
       const response = await fetch("/api/score", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, name: name.trim(), ...(game === "crosswords" ? { letters } : { moves }) }),
+        body: JSON.stringify({ token, ...(game === "crosswords" ? { letters } : { moves }) }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not submit your score.");
@@ -153,12 +151,13 @@ export default function Arcade({ gameId }: { gameId: string }) {
   const correctClues = [...clueStatuses.values()].filter((status) => status === "correct").length;
   const completed = game === "crosswords" ? correctClues === entries.length : puzzleSolved;
   const currentEntry = entries.find((candidate) => candidate.number === selected) || entries[0];
+  const currentPicture = puzzlePicture(pictureId);
 
   return (
     <main>
       <header className="site-header">
         <a href="/" className="brand" aria-label="Golden Spatula Arcade home"><img className="brand-logo" src="/golden-spatula-logo.png" alt="" /><strong>ARCADE</strong></a>
-        <div className="header-actions"><span className="header-pill"><span className="live-dot" /> GAME ID: {gameId}</span><button type="button" onClick={signOut} className="signout">SIGN OUT</button></div>
+        <div className="header-actions"><span className="header-pill"><span className="live-dot" /> {playerName} · GAME ID: {gameId}</span><button type="button" onClick={signOut} className="signout">SIGN OUT</button></div>
       </header>
 
       <section className="hero">
@@ -189,8 +188,8 @@ export default function Arcade({ gameId }: { gameId: string }) {
         </div>
 
         {game && <section className="play-area" aria-live="polite">
-          <div className="play-heading"><div><span className="overline">02 / NOW PLAYING</span><h2>{game === "crosswords" ? "Golden Spatula Crosswords" : "Golden Spatula Puzzle"}</h2></div><button type="button" className="text-button" onClick={() => startGame(game)}>↻ NEW GAME</button></div>
-          <div className="play-meta"><span>⏱ TIME <strong>{formatTime(clock)}</strong></span><span>{game === "crosswords" ? `▦ FILLED ${crosswordFilled}/${cellEntries.size}` : `↗ MOVES ${moves.length}`}</span>{game === "crosswords" && <span className="clue-progress" aria-live="polite">✓ CORRECT <strong>{correctClues}/{entries.length}</strong></span>}</div>
+          <div className="play-heading"><div><span className="overline">02 / NOW PLAYING</span><h2>{game === "crosswords" ? "Golden Spatula Crosswords" : "Golden Spatula Puzzle"}</h2></div><button type="button" className="text-button" onClick={() => startGame(game, pictureId)}>↻ NEW GAME</button></div>
+          <div className="play-meta"><span>⏱ TIME <strong>{formatTime(clock)}</strong></span><span>{game === "crosswords" ? `▦ FILLED ${crosswordFilled}/${cellEntries.size}` : `↗ MOVES ${moves.length}`}</span>{game === "crosswords" ? <span className="clue-progress" aria-live="polite">✓ CORRECT <strong>{correctClues}/{entries.length}</strong></span> : <span>IMAGE <strong>{pictureId}/{puzzlePictures.length}</strong></span>}</div>
           {loading ? <div className="loading">SETTING UP YOUR GAME…</div> : token && <>
             {game === "crosswords" ? <div className="crossword-layout">
               <div className="grid-wrap"><div className="crossword-grid" role="group" aria-label="Crossword grid">
@@ -209,10 +208,21 @@ export default function Arcade({ gameId }: { gameId: string }) {
               <div className="clues"><div className="clue-spotlight"><span>CURRENT CLUE · {currentEntry.direction.toUpperCase()}</span><strong>{currentEntry.number}. {currentEntry.clue}</strong><small>{currentEntry.hint}</small><span className={`clue-state ${clueStatuses.get(currentEntry.number)}`}>{clueStatuses.get(currentEntry.number) === "correct" ? "✓ Correct answer" : clueStatuses.get(currentEntry.number) === "incorrect" ? "✕ Incorrect — try again" : "Fill every letter to check"}</span></div>
                 {(["across", "down"] as const).map((direction) => <div className="clue-group" key={direction}><h4>{direction.toUpperCase()} <span>↗</span></h4>{entries.filter((entry) => entry.direction === direction).map((entry) => <button type="button" key={entry.number} className={`clue ${selected === entry.number ? "selected" : ""}`} onClick={() => { setSelected(entry.number); inputRefs.current[keysForEntry(entry)[0]]?.focus(); }}><b>{String(entry.number).padStart(2, "0")}</b><span className="clue-content"><strong>{entry.clue}</strong><small>{entry.hint}</small></span><span className={`clue-badge ${clueStatuses.get(entry.number)}`}>{clueStatuses.get(entry.number) === "correct" ? "✓ CORRECT" : clueStatuses.get(entry.number) === "incorrect" ? "✕ TRY AGAIN" : "IN PROGRESS"}</span></button>)}</div>)}
               </div>
-            </div> : <div className="puzzle-layout"><div className="puzzle-grid" role="group" aria-label="Sliding tile puzzle">{board.map((tile, index) => <button type="button" key={tile} disabled={tile === 0 || !adjacent(board.indexOf(0)).includes(index) || !!result} className={`puzzle-tile ${tile === 0 ? "tile-empty" : ""}`} onClick={() => slide(index)} aria-label={tile === 0 ? "Empty space" : `Tile ${tile}${adjacent(board.indexOf(0)).includes(index) ? ", move into empty space" : ""}`} style={tile ? { backgroundPosition: `${((tile - 1) % 3) * 50}% ${Math.floor((tile - 1) / 3) * 50}%` } : undefined}>{tile > 0 && <span>{tile}</span>}</button>)}</div><div className="puzzle-instructions"><span className="overline">HOW TO PLAY</span><h3>Piece it<br /><em>together.</em></h3><p>Tap a tile next to the empty square to slide it. Arrange all eight tiles in order to complete the Golden Spatula artwork.</p><div className="goal-preview"><img src="/puzzle-art.svg" alt="Completed Golden Spatula puzzle artwork" /><span>YOUR TARGET IMAGE ↗</span></div></div></div>}
+            </div> : <div className="puzzle-layout">
+              <div className="puzzle-grid" role="group" aria-label={`Sliding tile puzzle, ${currentPicture.label}`}>
+                {board.map((tile, index) => <button type="button" key={tile} disabled={tile === 0 || !adjacent(board.indexOf(0)).includes(index) || !!result} className={`puzzle-tile ${tile === 0 ? "tile-empty" : ""}`} onClick={() => slide(index)} aria-label={tile === 0 ? "Empty space" : `Tile ${tile}${adjacent(board.indexOf(0)).includes(index) ? ", move into empty space" : ""}`} style={tile ? { backgroundImage: `url("${currentPicture.src}")`, backgroundPosition: `${((tile - 1) % 3) * 50}% ${Math.floor((tile - 1) / 3) * 50}%` } : undefined}>{tile > 0 && <span>{tile}</span>}</button>)}
+              </div>
+              <div className="puzzle-instructions">
+                <span className="overline">PUZZLE PICTURES</span>
+                <div className="picture-choices">{puzzlePictures.map((picture) => <button type="button" key={picture.id} className={`picture-choice ${picture.id === pictureId ? "selected" : ""}`} aria-pressed={picture.id === pictureId} onClick={() => startGame("puzzle", picture.id)}><img src={picture.src} alt="" /><span>{picture.label}</span></button>)}</div>
+                <span className="overline">HOW TO PLAY</span><h3>Piece it<br /><em>together.</em></h3>
+                <p>Tap a tile next to the empty square to slide it. Arrange all eight tiles in order to reveal the selected image.</p>
+                <div className="goal-preview"><img src={currentPicture.src} alt={`Completed ${currentPicture.label} puzzle`} /><span>YOUR TARGET IMAGE ↗</span></div>
+              </div>
+            </div>}
 
-            <div className="score-panel"><div><span className="overline">03 / CLAIM YOUR SCORE</span><h3>{result ? "A golden finish!" : completed ? "Ready to claim your score?" : game === "crosswords" && crosswordFilled === cellEntries.size ? "Check your incorrect answers" : "Finish the game to unlock your score"}</h3><p>{result ? "Your completed score has been posted to Discord." : "Use a player name so everyone knows who solved it. Names are entered by players and are not verified Discord accounts."}</p></div>
-              {result ? <div className="result"><strong>{result.score.toLocaleString("en-US")}</strong><span>POINTS · {formatTime(result.elapsed)}{result.moves ? ` · ${result.moves} MOVES` : ""}</span><a href={result.messageUrl} target="_blank" rel="noopener noreferrer">VIEW DISCORD SCORE ↗</a></div> : <form onSubmit={(event) => { event.preventDefault(); submitScore(); }} className="score-form"><label htmlFor="player-name">PLAYER NAME</label><input id="player-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={24} placeholder="Your name" autoComplete="nickname" /><button type="submit" disabled={!completed || submitting}>{submitting ? "POSTING SCORE…" : "SEND SCORE TO DISCORD →"}</button></form>}
+            <div className="score-panel"><div><span className="overline">03 / CLAIM YOUR SCORE</span><h3>{result ? "A golden finish!" : completed ? "Ready to claim your score?" : game === "crosswords" && crosswordFilled === cellEntries.size ? "Check your incorrect answers" : "Finish the game to unlock your score"}</h3><p>{result ? "Your completed score has been posted to Discord." : `Your score will be posted as ${playerName}. ${game === "puzzle" ? "The completed puzzle image will appear with it." : "Names are entered by players and are not verified Discord accounts."}`}</p></div>
+              {result ? <div className="result"><strong>{result.score.toLocaleString("en-US")}</strong><span>POINTS · {formatTime(result.elapsed)}{result.moves ? ` · ${result.moves} MOVES` : ""}</span><a href={result.messageUrl} target="_blank" rel="noopener noreferrer">VIEW DISCORD SCORE ↗</a></div> : <div className="score-form"><span className="score-player-label">PLAYER</span><strong className="score-player">{playerName}</strong><button type="button" onClick={submitScore} disabled={!completed || submitting}>{submitting ? "POSTING SCORE…" : "SEND SCORE TO DISCORD →"}</button></div>}
             </div>
           </>}
           {error && <p className="error" role="alert">{error}</p>}

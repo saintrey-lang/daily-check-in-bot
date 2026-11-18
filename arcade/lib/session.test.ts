@@ -7,9 +7,15 @@ describe("signed game sessions", () => {
 
   it("rejects tampering and expired games", () => {
     const { token, session } = createSession("puzzle", "123456789");
+    expect(session.pictureId).toBe(1);
     expect(readSession(token)).toEqual(session);
     expect(readSession(`${token.slice(0, -2)}ab`)).toBeNull();
     vi.advanceTimersByTime(2 * 60 * 60 * 1000 + 1);
     expect(readSession(token)).toBeNull();
+  });
+
+  it("keeps the selected puzzle image in the signed game session", () => {
+    const { token } = createSession("puzzle", "123456789", 2);
+    expect(readSession(token)?.pictureId).toBe(2);
   });
 });

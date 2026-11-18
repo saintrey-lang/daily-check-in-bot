@@ -33,3 +33,14 @@ footer .brand strong{font-size:11px}
 .gate-art span{left:175px;bottom:22px}
 @media(max-width:950px){.clues{grid-template-columns:1fr 1fr}.clue-badge{font-size:8px}}
 @media(max-width:700px){.brand-logo{width:102px;max-height:35px}.brand strong{font-size:11px}.hero-logo{width:440px}.game-card{padding:22px}.clues{display:flex}.clue{flex-wrap:wrap}.clue-badge{margin-left:20px}}
+
+.picture-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0 28px}
+.picture-choice{display:flex;align-items:center;gap:9px;min-width:0;padding:8px;border:1px solid #514c84;border-radius:10px;background:#211f50;color:#dcd9f7;text-align:left;font-size:11px;font-weight:800}
+.picture-choice.selected{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold);color:#fff}
+.picture-choice img{width:51px;height:51px;object-fit:contain;background:#34306e;border-radius:6px;flex-shrink:0}
+.picture-choice span{line-height:1.35}
+.puzzle-tile{background-color:#272354}
+.goal-preview img{object-fit:contain;background:#34306e}
+.score-player-label{font-size:10px;font-weight:800;letter-spacing:1.5px;color:var(--mint)}
+.score-player{font:700 19px 'Space Grotesk',sans-serif;color:white;overflow-wrap:anywhere}
+@media(max-width:700px){.picture-choices{grid-template-columns:1fr 1fr}.picture-choice{flex-direction:column;align-items:flex-start}.picture-choice img{width:100%;height:80px}}

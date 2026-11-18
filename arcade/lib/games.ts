@@ -1,4 +1,13 @@
 export type Game = "crosswords" | "puzzle";
+export const puzzlePictures = [
+  { id: 1, src: "/puzzle-1.webp", label: "Image 1 · Chibi rider" },
+  { id: 2, src: "/puzzle-2.png", label: "Image 2 · Golden Spatula" },
+] as const;
+export type PuzzlePictureId = (typeof puzzlePictures)[number]["id"];
+
+export function puzzlePicture(id: PuzzlePictureId) {
+  return puzzlePictures.find((picture) => picture.id === id)!;
+}
 
 export const crossword = {
   rows: 12,

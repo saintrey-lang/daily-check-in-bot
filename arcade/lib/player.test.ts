@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { checkPin, createPlayerCookie, hashPin, normalizeGameId, readPlayerCookie, validPin } from "./player";
+import { checkPin, createPlayerCookie, hashPin, normalizeGameId, normalizePlayerName, readPlayerCookie, validPin } from "./player";
 
 describe("arcade player entry", () => {
   beforeEach(() => {
@@ -19,6 +19,8 @@ describe("arcade player entry", () => {
     expect(normalizeGameId("=IMPORTXML(A1)")).toBeNull();
     expect(validPin("0123")).toBe(true);
     expect(validPin("12345")).toBe(false);
+    expect(normalizePlayerName("  Saint  ")).toBe("Saint");
+    expect(normalizePlayerName("@everyone")).toBeNull();
   });
 
   it("stores a salted hash and checks the PIN without storing its raw digits", () => {
@@ -31,8 +33,8 @@ describe("arcade player entry", () => {
   });
 
   it("rejects altered and expired entry cookies", () => {
-    const cookie = createPlayerCookie("00123456");
-    expect(readPlayerCookie(cookie)).toBe("00123456");
+    const cookie = createPlayerCookie("00123456", "Saint");
+    expect(readPlayerCookie(cookie)).toEqual({ gameId: "00123456", name: "Saint" });
     expect(readPlayerCookie(`${cookie.slice(0, -2)}ab`)).toBeNull();
     vi.advanceTimersByTime(24 * 60 * 60 * 1000 + 1);
     expect(readPlayerCookie(cookie)).toBeNull();

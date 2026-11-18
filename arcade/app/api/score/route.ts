@@ -3,6 +3,7 @@ import { verifyCrossword, verifyPuzzle } from "@/lib/games";
 import { readSession } from "@/lib/session";
 import { cookies } from "next/headers";
 import { PLAYER_COOKIE, readPlayerCookie } from "@/lib/player";
+import { buildScoreMessage } from "@/lib/score-message";
 
 export const runtime = "nodejs";
 
@@ -11,9 +12,9 @@ const CHANNEL_ID = "1293667554866499676";
 const completed = new Set<string>();
 
 export async function POST(request: Request) {
-  const playerId = readPlayerCookie((await cookies()).get(PLAYER_COOKIE)?.value);
-  if (!playerId) return NextResponse.json({ error: "Enter your Game ID and PIN first." }, { status: 401 });
-  let input: { token?: unknown; name?: unknown; letters?: unknown; moves?: unknown };
+  const player = readPlayerCookie((await cookies()).get(PLAYER_COOKIE)?.value);
+  if (!player) return NextResponse.json({ error: "Enter your name, Game ID, and PIN first." }, { status: 401 });
+  let input: { token?: unknown; letters?: unknown; moves?: unknown };
   try {
     if (Number(request.headers.get("content-length") || 0) > 16000) throw new Error("Too large");
     input = await request.json();
@@ -21,11 +22,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid score submission." }, { status: 400 });
   }
   const session = readSession(input?.token);
-  if (!session || session.playerId !== playerId) return NextResponse.json({ error: "Game session expired. Start a new game." }, { status: 400 });
-  if (typeof input.name !== "string" || !/^[\p{L}\p{N} _.-]{2,24}$/u.test(input.name.trim())) {
-    return NextResponse.json({ error: "Use a name of 2–24 letters or numbers." }, { status: 400 });
-  }
-  const name = input.name.trim();
+  if (!session || session.playerId !== player.gameId) return NextResponse.json({ error: "Game session expired. Start a new game." }, { status: 400 });
   const elapsed = Math.floor((Date.now() - session.issuedAt) / 1000);
   const minimum = session.game === "crosswords" ? 15 : 8;
   if (elapsed < minimum) {
@@ -42,24 +39,19 @@ export async function POST(request: Request) {
   const score = session.game === "crosswords"
     ? Math.max(100, 1200 - elapsed * 4)
     : Math.max(100, 1400 - elapsed * 4 - (moves || 0) * 7);
-  const title = session.game === "crosswords" ? "GOLDEN SPATULA CROSSWORDS" : "GOLDEN SPATULA PUZZLE";
-  const content = [
-    `🏆 **${title} — completed!**`,
-    `Player: **${name}** (player-entered name)`,
-    `Score: **${score.toLocaleString("en-US")}** · Time: **${Math.floor(elapsed / 60)}m ${elapsed % 60}s**${moves ? ` · Moves: **${moves}**` : ""}`,
-  ].join("\n");
+  const message = buildScoreMessage({ game: session.game, name: player.name, score, elapsed, moves, pictureId: session.pictureId });
 
   try {
     const response = await fetch(`https://discord.com/api/v10/channels/${CHANNEL_ID}/messages`, {
       method: "POST",
       headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ content, allowed_mentions: { parse: [] }, nonce: session.id, enforce_nonce: true }),
+      body: JSON.stringify({ ...message, allowed_mentions: { parse: [] }, nonce: session.id, enforce_nonce: true }),
       signal: AbortSignal.timeout(12000),
     });
     if (!response.ok) throw new Error(`Discord returned ${response.status}`);
-    const message: { id?: string } = await response.json();
-    if (!message.id) throw new Error("Discord did not return a message ID");
-    return NextResponse.json({ score, elapsed, moves, messageUrl: `https://discord.com/channels/1293483684888055840/${CHANNEL_ID}/${message.id}` },
+    const postedMessage: { id?: string } = await response.json();
+    if (!postedMessage.id) throw new Error("Discord did not return a message ID");
+    return NextResponse.json({ score, elapsed, moves, messageUrl: `https://discord.com/channels/1293483684888055840/${CHANNEL_ID}/${postedMessage.id}` },
       { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     completed.delete(session.id);
