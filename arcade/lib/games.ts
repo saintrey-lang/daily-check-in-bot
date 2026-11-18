@@ -4,14 +4,14 @@ export const crossword = {
   rows: 12,
   cols: 11,
   entries: [
-    { number: 1, word: "YORDLE", row: 0, col: 4, direction: "across", clue: "Tiny Runeterra folk with outsized charm" },
-    { number: 2, word: "REROLL", row: 0, col: 6, direction: "down", clue: "Spend gold to refresh the champion shop" },
-    { number: 3, word: "TACTIC", row: 2, col: 9, direction: "down", clue: "Your battle plan in one word" },
-    { number: 4, word: "PORTAL", row: 3, col: 5, direction: "across", clue: "Opening that changes how the lobby plays" },
-    { number: 5, word: "SPATULA", row: 5, col: 1, direction: "across", clue: "The golden utensil at the heart of our arena" },
-    { number: 6, word: "AUGMENT", row: 5, col: 3, direction: "down", clue: "A special choice that powers up your team" },
-    { number: 7, word: "ARENA", row: 5, col: 7, direction: "down", clue: "The board where a round is fought" },
-    { number: 8, word: "CHONCC", row: 10, col: 0, direction: "across", clue: "The round little dragon mascot" },
+    { number: 1, word: "YORDLE", row: 0, col: 4, direction: "across", clue: "Tiny Runeterra folk with outsized charm", hint: "Think of Teemo, Tristana, and Lulu." },
+    { number: 2, word: "REROLL", row: 0, col: 6, direction: "down", clue: "Spend gold to refresh the champion shop", hint: "Try your luck with a new set of shop offers." },
+    { number: 3, word: "TACTIC", row: 2, col: 9, direction: "down", clue: "Your battle plan in one word", hint: "A strategy for building your winning comp." },
+    { number: 4, word: "PORTAL", row: 3, col: 5, direction: "across", clue: "Opening that changes how the lobby plays", hint: "A gateway that can set the rules for a match." },
+    { number: 5, word: "SPATULA", row: 5, col: 1, direction: "across", clue: "The golden utensil at the heart of our arena", hint: "This iconic item can help shape team traits." },
+    { number: 6, word: "AUGMENT", row: 5, col: 3, direction: "down", clue: "A special choice that powers up your team", hint: "Pick one at key stages to change your comp." },
+    { number: 7, word: "ARENA", row: 5, col: 7, direction: "down", clue: "The board where a round is fought", hint: "Your units stand here during combat." },
+    { number: 8, word: "CHONCC", row: 10, col: 0, direction: "across", clue: "The round little dragon mascot", hint: "A plump Little Legend with a big appetite." },
   ] as const,
 };
 

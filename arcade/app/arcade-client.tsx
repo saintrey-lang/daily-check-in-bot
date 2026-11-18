@@ -146,13 +146,18 @@ export default function Arcade({ gameId }: { gameId: string }) {
 
   const puzzleSolved = board.length === 9 && board.every((tile, index) => tile === solvedBoard[index]);
   const crosswordFilled = Object.keys(letters).filter((key) => letters[key] && cellEntries.has(key)).length;
-  const completed = game === "crosswords" ? crosswordFilled === cellEntries.size : puzzleSolved;
+  const clueStatuses = new Map(entries.map((entry) => {
+    const answer = keysForEntry(entry).map((key) => letters[key] || "");
+    return [entry.number, answer.every(Boolean) ? answer.join("") === entry.word ? "correct" : "incorrect" : "pending"] as const;
+  }));
+  const correctClues = [...clueStatuses.values()].filter((status) => status === "correct").length;
+  const completed = game === "crosswords" ? correctClues === entries.length : puzzleSolved;
   const currentEntry = entries.find((candidate) => candidate.number === selected) || entries[0];
 
   return (
     <main>
       <header className="site-header">
-        <a href="/" className="brand" aria-label="Golden Spatula Arcade home"><span className="brand-mark">✦</span><span>GOLDEN SPATULA <strong>ARCADE</strong></span></a>
+        <a href="/" className="brand" aria-label="Golden Spatula Arcade home"><img className="brand-logo" src="/golden-spatula-logo.png" alt="" /><strong>ARCADE</strong></a>
         <div className="header-actions"><span className="header-pill"><span className="live-dot" /> GAME ID: {gameId}</span><button type="button" onClick={signOut} className="signout">SIGN OUT</button></div>
       </header>
 
@@ -163,7 +168,7 @@ export default function Arcade({ gameId }: { gameId: string }) {
           <p>Pick a game, put your skills to the test, and send your winning score straight to the community.</p>
           <div className="hero-tags"><span>✦ CROSSWORDS</span><span>✦ SLIDING PUZZLE</span><span>✦ DISCORD SCORES</span></div>
         </div>
-        <div className="hero-art" aria-hidden="true"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><img className="hero-spatula" src="/spatula.svg" alt="" /><span className="float-star star-one">✦</span><span className="float-star star-two">✧</span><span className="float-star star-three">✳</span><span className="hero-art-caption">READY, SET, PLAY!</span></div>
+        <div className="hero-art" aria-hidden="true"><img className="hero-logo" src="/golden-spatula-logo.png" alt="" /><span className="float-star star-one">✦</span><span className="float-star star-two">✧</span><span className="float-star star-three">✳</span><span className="hero-art-caption">READY, SET, PLAY!</span></div>
       </section>
 
       <section className="content" id="games">
@@ -171,13 +176,13 @@ export default function Arcade({ gameId }: { gameId: string }) {
         <div className="game-cards">
           <button type="button" className={`game-card crossword-card ${game === "crosswords" ? "active" : ""}`} onClick={() => startGame("crosswords") }>
             <div className="card-top"><span className="card-index">GAME 01</span><span className="card-arrow">↗</span></div>
-            <div className="crossword-icon" aria-hidden="true"><span>G</span><span>O</span><span>L</span><span>D</span><span>★</span><span>?</span><span>?</span><span>?</span><span>?</span></div>
+            <img className="card-banner" src="/crossword-banner.webp" alt="Golden Spatula Crossword anniversary banner" />
             <div><span className="card-kind">WORD GAME · 8 CLUES</span><h3>GOLDEN SPATULA<br />CROSSWORDS</h3><p>Fill the grid with words from the arena. Every clue gets you closer to the crown.</p></div>
             <span className="card-cta">PLAY CROSSWORDS <span>→</span></span>
           </button>
           <button type="button" className={`game-card puzzle-card ${game === "puzzle" ? "active" : ""}`} onClick={() => startGame("puzzle") }>
             <div className="card-top"><span className="card-index">GAME 02</span><span className="card-arrow">↗</span></div>
-            <div className="puzzle-icon" aria-hidden="true"><span>✦</span><span>✧</span><span>◈</span><span>◆</span></div>
+            <img className="card-banner" src="/puzzle-banner.webp" alt="Golden Spatula Puzzle anniversary banner" />
             <div><span className="card-kind">SLIDING GAME · 9 TILES</span><h3>GOLDEN SPATULA<br />PUZZLE</h3><p>Slide the tiles back into place. Find the picture and beat the clock.</p></div>
             <span className="card-cta">PLAY PUZZLE <span>→</span></span>
           </button>
@@ -185,7 +190,7 @@ export default function Arcade({ gameId }: { gameId: string }) {
 
         {game && <section className="play-area" aria-live="polite">
           <div className="play-heading"><div><span className="overline">02 / NOW PLAYING</span><h2>{game === "crosswords" ? "Golden Spatula Crosswords" : "Golden Spatula Puzzle"}</h2></div><button type="button" className="text-button" onClick={() => startGame(game)}>↻ NEW GAME</button></div>
-          <div className="play-meta"><span>⏱ TIME <strong>{formatTime(clock)}</strong></span><span>{game === "crosswords" ? `▦ FILLED ${crosswordFilled}/${cellEntries.size}` : `↗ MOVES ${moves.length}`}</span></div>
+          <div className="play-meta"><span>⏱ TIME <strong>{formatTime(clock)}</strong></span><span>{game === "crosswords" ? `▦ FILLED ${crosswordFilled}/${cellEntries.size}` : `↗ MOVES ${moves.length}`}</span>{game === "crosswords" && <span className="clue-progress" aria-live="polite">✓ CORRECT <strong>{correctClues}/{entries.length}</strong></span>}</div>
           {loading ? <div className="loading">SETTING UP YOUR GAME…</div> : token && <>
             {game === "crosswords" ? <div className="crossword-layout">
               <div className="grid-wrap"><div className="crossword-grid" role="group" aria-label="Crossword grid">
@@ -201,19 +206,19 @@ export default function Arcade({ gameId }: { gameId: string }) {
                   </div>;
                 })}
               </div><p className="grid-hint">TIP: TAP AN INTERSECTION TO SWITCH BETWEEN CLUES</p></div>
-              <div className="clues"><div className="clue-spotlight"><span>CURRENT CLUE · {currentEntry.direction.toUpperCase()}</span><strong>{currentEntry.number}. {currentEntry.clue}</strong></div>
-                {(["across", "down"] as const).map((direction) => <div className="clue-group" key={direction}><h4>{direction.toUpperCase()} <span>↗</span></h4>{entries.filter((entry) => entry.direction === direction).map((entry) => <button type="button" key={entry.number} className={`clue ${selected === entry.number ? "selected" : ""}`} onClick={() => { setSelected(entry.number); inputRefs.current[keysForEntry(entry)[0]]?.focus(); }}><b>{String(entry.number).padStart(2, "0")}</b><span>{entry.clue}</span></button>)}</div>)}
+              <div className="clues"><div className="clue-spotlight"><span>CURRENT CLUE · {currentEntry.direction.toUpperCase()}</span><strong>{currentEntry.number}. {currentEntry.clue}</strong><small>{currentEntry.hint}</small><span className={`clue-state ${clueStatuses.get(currentEntry.number)}`}>{clueStatuses.get(currentEntry.number) === "correct" ? "✓ Correct answer" : clueStatuses.get(currentEntry.number) === "incorrect" ? "✕ Incorrect — try again" : "Fill every letter to check"}</span></div>
+                {(["across", "down"] as const).map((direction) => <div className="clue-group" key={direction}><h4>{direction.toUpperCase()} <span>↗</span></h4>{entries.filter((entry) => entry.direction === direction).map((entry) => <button type="button" key={entry.number} className={`clue ${selected === entry.number ? "selected" : ""}`} onClick={() => { setSelected(entry.number); inputRefs.current[keysForEntry(entry)[0]]?.focus(); }}><b>{String(entry.number).padStart(2, "0")}</b><span className="clue-content"><strong>{entry.clue}</strong><small>{entry.hint}</small></span><span className={`clue-badge ${clueStatuses.get(entry.number)}`}>{clueStatuses.get(entry.number) === "correct" ? "✓ CORRECT" : clueStatuses.get(entry.number) === "incorrect" ? "✕ TRY AGAIN" : "IN PROGRESS"}</span></button>)}</div>)}
               </div>
             </div> : <div className="puzzle-layout"><div className="puzzle-grid" role="group" aria-label="Sliding tile puzzle">{board.map((tile, index) => <button type="button" key={tile} disabled={tile === 0 || !adjacent(board.indexOf(0)).includes(index) || !!result} className={`puzzle-tile ${tile === 0 ? "tile-empty" : ""}`} onClick={() => slide(index)} aria-label={tile === 0 ? "Empty space" : `Tile ${tile}${adjacent(board.indexOf(0)).includes(index) ? ", move into empty space" : ""}`} style={tile ? { backgroundPosition: `${((tile - 1) % 3) * 50}% ${Math.floor((tile - 1) / 3) * 50}%` } : undefined}>{tile > 0 && <span>{tile}</span>}</button>)}</div><div className="puzzle-instructions"><span className="overline">HOW TO PLAY</span><h3>Piece it<br /><em>together.</em></h3><p>Tap a tile next to the empty square to slide it. Arrange all eight tiles in order to complete the Golden Spatula artwork.</p><div className="goal-preview"><img src="/puzzle-art.svg" alt="Completed Golden Spatula puzzle artwork" /><span>YOUR TARGET IMAGE ↗</span></div></div></div>}
 
-            <div className="score-panel"><div><span className="overline">03 / CLAIM YOUR SCORE</span><h3>{result ? "A golden finish!" : completed ? "Ready to claim your score?" : "Finish the game to unlock your score"}</h3><p>{result ? "Your completed score has been posted to Discord." : "Use a player name so everyone knows who solved it. Names are entered by players and are not verified Discord accounts."}</p></div>
+            <div className="score-panel"><div><span className="overline">03 / CLAIM YOUR SCORE</span><h3>{result ? "A golden finish!" : completed ? "Ready to claim your score?" : game === "crosswords" && crosswordFilled === cellEntries.size ? "Check your incorrect answers" : "Finish the game to unlock your score"}</h3><p>{result ? "Your completed score has been posted to Discord." : "Use a player name so everyone knows who solved it. Names are entered by players and are not verified Discord accounts."}</p></div>
               {result ? <div className="result"><strong>{result.score.toLocaleString("en-US")}</strong><span>POINTS · {formatTime(result.elapsed)}{result.moves ? ` · ${result.moves} MOVES` : ""}</span><a href={result.messageUrl} target="_blank" rel="noopener noreferrer">VIEW DISCORD SCORE ↗</a></div> : <form onSubmit={(event) => { event.preventDefault(); submitScore(); }} className="score-form"><label htmlFor="player-name">PLAYER NAME</label><input id="player-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={24} placeholder="Your name" autoComplete="nickname" /><button type="submit" disabled={!completed || submitting}>{submitting ? "POSTING SCORE…" : "SEND SCORE TO DISCORD →"}</button></form>}
             </div>
           </>}
           {error && <p className="error" role="alert">{error}</p>}
         </section>}
       </section>
-      <footer><span className="brand"><span className="brand-mark">✦</span> GOLDEN SPATULA ARCADE</span><span>PLAY WELL. WIN GOLD. ✳</span></footer>
+      <footer><span className="brand"><img className="brand-logo" src="/golden-spatula-logo.png" alt="Golden Spatula" /> <strong>ARCADE</strong></span><span>PLAY WELL. WIN GOLD. ✳</span></footer>
     </main>
   );
 }

@@ -29,9 +29,9 @@ export default function EntryGate() {
   }
 
   return <main className="gate-page">
-    <header className="site-header"><a href="/" className="brand"><span className="brand-mark">✦</span><span>GOLDEN SPATULA <strong>ARCADE</strong></span></a><span className="header-pill"><span className="live-dot" /> PLAYER ENTRY</span></header>
+    <header className="site-header"><a href="/" className="brand" aria-label="Golden Spatula Arcade home"><img className="brand-logo" src="/golden-spatula-logo.png" alt="" /><strong>ARCADE</strong></a><span className="header-pill"><span className="live-dot" /> PLAYER ENTRY</span></header>
     <section className="gate-layout">
-      <div className="gate-intro"><span className="eyebrow">✳ YOUR ARENA AWAITS</span><h1>PLAY FOR<br /><em>GOLD.</em></h1><p>One quick entry check before the games begin. Use your Golden Spatula Game ID and a four-digit PIN to access the arcade.</p><div className="gate-art" aria-hidden="true"><div className="gate-orbit"/><img src="/spatula.svg" alt="" /><span>✦ CROSSWORDS &nbsp; ✦ PUZZLE</span></div></div>
+      <div className="gate-intro"><span className="eyebrow">✳ YOUR ARENA AWAITS</span><h1>PLAY FOR<br /><em>GOLD.</em></h1><p>One quick entry check before the games begin. Use your Golden Spatula Game ID and a four-digit PIN to access the arcade.</p><div className="gate-art" aria-hidden="true"><img src="/golden-spatula-logo.png" alt="" /><span>✦ CROSSWORDS &nbsp; ✦ PUZZLE</span></div></div>
       <div className="gate-card"><span className="overline">WELCOME TO THE ARCADE</span><h2>{mode === "register" ? "Create your entry." : "Welcome back."}</h2><p>{mode === "register" ? "First time here? Register your Game ID and make a PIN." : "Enter the Game ID and PIN you registered with."}</p>
         <div className="entry-tabs" role="tablist" aria-label="Entry mode"><button type="button" role="tab" aria-selected={mode === "register"} className={mode === "register" ? "selected" : ""} onClick={() => { setMode("register"); setError(""); setPin(""); setConfirmPin(""); }}>CREATE ENTRY</button><button type="button" role="tab" aria-selected={mode === "login"} className={mode === "login" ? "selected" : ""} onClick={() => { setMode("login"); setError(""); setPin(""); setConfirmPin(""); }}>SIGN IN</button></div>
         <form className="entry-form" onSubmit={enter}>
@@ -44,6 +44,6 @@ export default function EntryGate() {
         <p className="gate-note">Your Game ID and a protected PIN hash are saved in the arcade sheet. Keep your PIN private; it cannot be displayed or recovered. Your entry lasts 24 hours.</p>
       </div>
     </section>
-    <footer><span className="brand"><span className="brand-mark">✦</span> GOLDEN SPATULA ARCADE</span><span>PLAY WELL. WIN GOLD. ✳</span></footer>
+    <footer><span className="brand"><img className="brand-logo" src="/golden-spatula-logo.png" alt="Golden Spatula" /> <strong>ARCADE</strong></span><span>PLAY WELL. WIN GOLD. ✳</span></footer>
   </main>;
 }
