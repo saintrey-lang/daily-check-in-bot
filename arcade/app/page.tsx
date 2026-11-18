@@ -158,7 +158,7 @@ export default function Arcade() {
           <p>Pick a game, put your skills to the test, and send your winning score straight to the community.</p>
           <div className="hero-tags"><span>✦ CROSSWORDS</span><span>✦ SLIDING PUZZLE</span><span>✦ DISCORD SCORES</span></div>
         </div>
-        <div className="hero-art" aria-hidden="true"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="hero-spatula">♜</div><span className="float-star star-one">✦</span><span className="float-star star-two">✧</span><span className="float-star star-three">✳</span><span className="hero-art-caption">READY, SET, PLAY!</span></div>
+        <div className="hero-art" aria-hidden="true"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><img className="hero-spatula" src="/spatula.svg" alt="" /><span className="float-star star-one">✦</span><span className="float-star star-two">✧</span><span className="float-star star-three">✳</span><span className="hero-art-caption">READY, SET, PLAY!</span></div>
       </section>
 
       <section className="content" id="games">
@@ -172,7 +172,7 @@ export default function Arcade() {
           </button>
           <button type="button" className={`game-card puzzle-card ${game === "puzzle" ? "active" : ""}`} onClick={() => startGame("puzzle") }>
             <div className="card-top"><span className="card-index">GAME 02</span><span className="card-arrow">↗</span></div>
-            <div className="puzzle-icon" aria-hidden="true"><span>✦</span><span>♜</span><span>◈</span><span>◆</span></div>
+            <div className="puzzle-icon" aria-hidden="true"><span>✦</span><span>✧</span><span>◈</span><span>◆</span></div>
             <div><span className="card-kind">SLIDING GAME · 9 TILES</span><h3>GOLDEN SPATULA<br />PUZZLE</h3><p>Slide the tiles back into place. Find the picture and beat the clock.</p></div>
             <span className="card-cta">PLAY PUZZLE <span>→</span></span>
           </button>
