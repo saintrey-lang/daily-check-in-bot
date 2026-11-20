@@ -36,7 +36,7 @@ function DiscordEntryGate() {
         const { clientId } = await configResponse.json();
         const { player } = await connectDiscordActivity(clientId);
         if (!active) return;
-        if (!player.needsGameId) { window.location.assign("/"); return; }
+        if (!player.needsGameId) { window.location.reload(); return; }
         setName(player.name);
       } catch (failure) {
         if (active) setError(failure instanceof Error ? failure.message : "Could not connect to Discord.");
@@ -60,7 +60,7 @@ function DiscordEntryGate() {
         if (result.requiresLegacyPin) setRequiresPin(true);
         throw new Error(result.error || "Could not link your Game ID.");
       }
-      window.location.assign("/");
+      window.location.reload();
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Could not link your Game ID.");
       setLoading(false);
@@ -105,7 +105,7 @@ function LegacyEntryGate() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not enter the arcade.");
-      window.location.assign("/");
+      window.location.reload();
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Could not enter the arcade.");
       setLoading(false);

@@ -184,7 +184,7 @@ export default function Arcade({ gameId, playerName, discordId }: { gameId: stri
   async function signOut() {
     if (!await exitAndShare(false)) return;
     await fetch("/api/logout", { method: "POST", headers: window.location.hostname.endsWith(".discordsays.com") ? { "X-Arcade-Activity": "1" } : {} });
-    window.location.assign("/");
+    window.location.reload();
   }
 
   async function exitAndShare(close = true): Promise<boolean> {

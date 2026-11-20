@@ -3,6 +3,10 @@ import { DiscordSDK } from "@discord/embedded-app-sdk";
 type SignInResult = { needsGameId: boolean; name: string; discordId: string };
 
 export async function connectDiscordActivity(clientId: string): Promise<{ sdk: DiscordSDK; player: SignInResult }> {
+  const params = new URLSearchParams(window.location.search);
+  if (!params.get("frame_id") || !params.get("instance_id") || !params.get("platform")) {
+    throw new Error("Discord launch details are missing. Close this Activity and launch it again from Discord.");
+  }
   const sdk = new DiscordSDK(clientId);
   await sdk.ready();
   const { code } = await sdk.commands.authorize({ client_id: clientId, response_type: "code", state: "", prompt: "none", scope: ["identify"] });
