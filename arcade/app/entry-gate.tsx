@@ -46,6 +46,6 @@ export default function EntryGate() {
         <p className="gate-note">Your name, Game ID, and a protected PIN hash are saved in the arcade sheet. Keep your PIN private; it cannot be displayed or recovered. Your entry lasts 24 hours.</p>
       </div>
     </section>
-    <footer><span className="brand"><img className="brand-logo" src="/golden-spatula-logo.png" alt="Golden Spatula" /> <strong>ARCADE</strong></span><span>PLAY WELL. WIN GOLD. ✳</span></footer>
+    <footer><span className="brand"><img className="brand-logo" src="/golden-spatula-logo.png" alt="Golden Spatula" /> <strong>ARCADE</strong></span><nav className="footer-links" aria-label="Legal"><a href="/terms">Terms of Service</a><a href="/privacy">Privacy Policy</a></nav></footer>
   </main>;
 }
