@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   const message = buildScoreMessage({ game: session.game, name: player.name, score, elapsed, moves, pictureId: session.pictureId });
 
   try {
-    const messageUrl = await postArcadeMessage(session.game, message, `complete:${session.id}`);
+    const messageUrl = await postArcadeMessage(message, `complete:${session.id}`);
     try { await progressStore().markComplete(player.gameId, session.game, input.token as string); }
     catch (error) { console.error("Could not mark arcade progress completed:", error); }
     return NextResponse.json({ score, elapsed, moves, messageUrl },

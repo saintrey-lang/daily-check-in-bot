@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ArcadePlayersStore } from "@/lib/players-sheet";
 import { PUZZLE_CHANNEL_ID } from "@/lib/games";
+import { SCORE_CHANNEL_ID } from "@/lib/discord-post";
 
 export const runtime = "nodejs";
 
@@ -12,7 +13,7 @@ export async function GET() {
       headers: { Authorization: `Bot ${token}` }, signal: AbortSignal.timeout(8000), cache: "no-store",
     });
     const [crossword, puzzle, sheet] = await Promise.allSettled([
-      channelResponse("1293667554866499676"),
+      channelResponse(SCORE_CHANNEL_ID),
       channelResponse(`${PUZZLE_CHANNEL_ID}/messages?limit=1`),
       new ArcadePlayersStore().setup(),
     ]);

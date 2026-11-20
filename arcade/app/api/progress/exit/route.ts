@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     if (saved.lastPostedRevision >= saved.revision) return NextResponse.json({ ok: true, alreadyPosted: true });
     const current = readProgress(session, saved.state)!;
     const message = buildProgressMessage({ game: session.game, name: player.name, gameId: player.gameId, points: current.points, detail: current.detail, pictureId: session.pictureId });
-    const messageUrl = await postArcadeMessage(session.game, message, `exit:${session.id}:${saved.revision}`);
+    const messageUrl = await postArcadeMessage(message, `exit:${session.id}:${saved.revision}`);
     await store.markExit(player.gameId, session.game, input.token as string, saved.revision);
     return NextResponse.json({ ok: true, points: current.points, messageUrl });
   } catch (error) {
