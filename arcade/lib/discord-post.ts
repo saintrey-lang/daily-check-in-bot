@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { channelAttachment } from "./puzzle-channel";
+import { discordPictureId } from "./games";
 
 export const SCORE_CHANNEL_ID = "1293667554866499676";
 const GUILD_ID = "1293483684888055840";
@@ -10,7 +12,13 @@ async function attachedImageMessage(message: { content: string; embeds?: Array<{
   if (url.origin !== IMAGE_ORIGIN || !(url.pathname === "/api/puzzle-image" || /^\/puzzle-[12]\.(webp|png)$/.test(url.pathname))) {
     throw new Error("Invalid Arcade picture URL");
   }
-  const image = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(12000) });
+  let imageSource: string | URL = url;
+  if (url.pathname === "/api/puzzle-image") {
+    const attachment = await channelAttachment(discordPictureId(url.searchParams.get("messageId") || "", url.searchParams.get("attachmentId") || ""));
+    if (!attachment) throw new Error("Selected Discord picture is unavailable");
+    imageSource = attachment.url;
+  }
+  const image = await fetch(imageSource, { cache: "no-store", signal: AbortSignal.timeout(12000) });
   if (!image.ok) throw new Error(`Arcade picture returned ${image.status}`);
   const mime = image.headers.get("content-type")?.split(";")[0].trim().toLowerCase() || "";
   const extension = IMAGE_TYPES[mime];
