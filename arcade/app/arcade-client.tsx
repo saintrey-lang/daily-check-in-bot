@@ -368,7 +368,7 @@ export default function Arcade({ gameId, playerName }: { gameId: string; playerN
           {error && <p className="error" role="alert">{error}</p>}
         </section>}
       </section>
-      <footer><span className="brand"><img className="brand-logo" src="/golden-spatula-logo.png" alt="Golden Spatula" /> <strong>ARCADE</strong></span><span>PLAY WELL. WIN GOLD. ✳</span></footer>
+      <footer><span className="brand"><img className="brand-logo" src="/golden-spatula-logo.png" alt="Golden Spatula" /> <strong>ARCADE</strong></span><nav className="footer-links" aria-label="Legal"><a href="/terms">Terms of Service</a><a href="/privacy">Privacy Policy</a></nav></footer>
     </main>
   );
 }
