@@ -17,7 +17,7 @@ export default function EntryGate() {
     setLoading(true);
     try {
       const response = await fetch("/api/entry", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json", ...(window.location.hostname.endsWith(".discordsays.com") ? { "X-Arcade-Activity": "1" } : {}) },
         body: JSON.stringify({ mode, gameId: gameId.trim(), name: name.trim(), pin, ...(mode === "register" ? { confirmPin } : {}) }),
       });
       const result = await response.json();

@@ -10,12 +10,14 @@ describe("signed game sessions", () => {
     expect(session.pictureId).toBe(1);
     expect(readSession(token)).toEqual(session);
     expect(readSession(`${token.slice(0, -2)}ab`)).toBeNull();
-    vi.advanceTimersByTime(2 * 60 * 60 * 1000 + 1);
+    vi.advanceTimersByTime(30 * 24 * 60 * 60 * 1000 + 1);
     expect(readSession(token)).toBeNull();
   });
 
   it("keeps the selected puzzle image in the signed game session", () => {
     const { token } = createSession("puzzle", "123456789", 2);
     expect(readSession(token)?.pictureId).toBe(2);
+    const picture = "discord:1573243616925712495:1573243616925712496";
+    expect(readSession(createSession("puzzle", "123456789", picture).token)?.pictureId).toBe(picture);
   });
 });

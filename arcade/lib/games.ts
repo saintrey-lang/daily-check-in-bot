@@ -3,10 +3,29 @@ export const puzzlePictures = [
   { id: 1, src: "/puzzle-1.webp", label: "Image 1 · Chibi rider" },
   { id: 2, src: "/puzzle-2.png", label: "Image 2 · Golden Spatula" },
 ] as const;
-export type PuzzlePictureId = (typeof puzzlePictures)[number]["id"];
+export type PuzzlePictureId = 1 | 2 | `discord:${string}:${string}`;
+export type PuzzlePicture = { id: PuzzlePictureId; src: string; label: string };
+export const PUZZLE_CHANNEL_ID = "1573243616925712495";
 
-export function puzzlePicture(id: PuzzlePictureId) {
-  return puzzlePictures.find((picture) => picture.id === id)!;
+export function discordPictureId(messageId: string, attachmentId: string): PuzzlePictureId {
+  return `discord:${messageId}:${attachmentId}`;
+}
+
+export function parseDiscordPictureId(value: unknown): { messageId: string; attachmentId: string } | null {
+  if (typeof value !== "string") return null;
+  const match = /^discord:(\d{17,20}):(\d{17,20})$/.exec(value);
+  return match ? { messageId: match[1], attachmentId: match[2] } : null;
+}
+
+export function validPuzzlePictureId(value: unknown): value is PuzzlePictureId {
+  return value === 1 || value === 2 || !!parseDiscordPictureId(value);
+}
+
+export function puzzlePicture(id: PuzzlePictureId): PuzzlePicture {
+  if (id === 1 || id === 2) return puzzlePictures.find((picture) => picture.id === id)!;
+  const parsed = parseDiscordPictureId(id);
+  if (!parsed) throw new Error("Invalid puzzle picture");
+  return { id, src: `/api/puzzle-image?messageId=${parsed.messageId}&attachmentId=${parsed.attachmentId}`, label: "Community picture" };
 }
 
 export const crossword = {
@@ -60,14 +79,20 @@ export function adjacent(index: number): number[] {
 }
 
 export function verifyPuzzle(seed: number, moves: unknown): moves is number[] {
-  if (!Array.isArray(moves) || moves.length < 1 || moves.length > 1000) return false;
+  if (!Array.isArray(moves) || moves.length < 1) return false;
+  const board = boardAfterMoves(seed, moves);
+  return !!board && board.every((tile, index) => tile === solvedBoard[index]);
+}
+
+export function boardAfterMoves(seed: number, moves: unknown): number[] | null {
+  if (!Array.isArray(moves) || moves.length > 1000) return null;
   const board = boardForSeed(seed);
   for (const move of moves) {
     const blank = board.indexOf(0);
-    if (!Number.isInteger(move) || !adjacent(blank).includes(move)) return false;
+    if (!Number.isInteger(move) || !adjacent(blank).includes(move)) return null;
     [board[blank], board[move]] = [board[move], board[blank]];
   }
-  return board.every((tile, index) => tile === solvedBoard[index]);
+  return board;
 }
 
 export function verifyCrossword(letters: unknown): boolean {

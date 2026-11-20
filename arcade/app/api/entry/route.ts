@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createPlayerCookie, normalizeGameId, normalizePlayerName, PLAYER_COOKIE, PLAYER_SESSION_AGE_SECONDS, validPin } from "@/lib/player";
 import { ArcadePlayersStore, EntryError } from "@/lib/players-sheet";
+import { playerCookieOptions } from "@/lib/activity";
 
 export const runtime = "nodejs";
 const attempts = new Map<string, { count: number; until: number }>();
@@ -35,9 +36,7 @@ export async function POST(request: Request) {
     if (body.mode === "register") await store.register(gameId, body.pin, name);
     else await store.login(gameId, body.pin, name);
     const response = NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
-    response.cookies.set(PLAYER_COOKIE, createPlayerCookie(gameId, name), {
-      httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: PLAYER_SESSION_AGE_SECONDS,
-    });
+    response.cookies.set(PLAYER_COOKIE, createPlayerCookie(gameId, name), playerCookieOptions(request, PLAYER_SESSION_AGE_SECONDS));
     return response;
   } catch (error) {
     if (error instanceof EntryError) return NextResponse.json({ error: error.message }, { status: error.status });

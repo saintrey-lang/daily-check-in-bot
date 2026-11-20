@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
-import { boardForSeed, type Game, type PuzzlePictureId } from "@/lib/games";
+import { boardForSeed, parseDiscordPictureId, validPuzzlePictureId, type Game, type PuzzlePictureId } from "@/lib/games";
 import { createSession } from "@/lib/session";
 import { cookies } from "next/headers";
 import { PLAYER_COOKIE, readPlayerCookie } from "@/lib/player";
+import { channelAttachment } from "@/lib/puzzle-channel";
+import { progressStore } from "@/lib/progress-sheet";
 
 export const runtime = "nodejs";
 
@@ -16,11 +18,15 @@ export async function POST(request: Request) {
     if (game !== "crosswords" && game !== "puzzle") {
       return NextResponse.json({ error: "Choose a game to play." }, { status: 400 });
     }
-    if (game === "puzzle" && requestedPicture !== undefined && requestedPicture !== 1 && requestedPicture !== 2) {
+    if (game === "puzzle" && requestedPicture !== undefined && !validPuzzlePictureId(requestedPicture)) {
       return NextResponse.json({ error: "Choose a puzzle image." }, { status: 400 });
+    }
+    if (game === "puzzle" && parseDiscordPictureId(requestedPicture) && !await channelAttachment(requestedPicture)) {
+      return NextResponse.json({ error: "This picture is no longer in the puzzle channel." }, { status: 404 });
     }
     const pictureId = (requestedPicture ?? 1) as PuzzlePictureId;
     const { token, session } = createSession(game as Game, player.gameId, pictureId);
+    await progressStore().replace(player.gameId, game as Game, token, game === "puzzle" ? { moves: [] } : { letters: {} });
     return NextResponse.json({ token, board: game === "puzzle" ? boardForSeed(session.seed) : undefined },
       { headers: { "Cache-Control": "no-store" } });
   } catch {

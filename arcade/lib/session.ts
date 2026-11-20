@@ -1,8 +1,8 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import type { Game, PuzzlePictureId } from "./games";
+import { validPuzzlePictureId, type Game, type PuzzlePictureId } from "./games";
 
 export type Session = { id: string; game: Game; seed: number; issuedAt: number; playerId: string; pictureId?: PuzzlePictureId };
-const MAX_AGE_MS = 2 * 60 * 60 * 1000;
+const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 function key(): string {
   const secret = process.env.ARCADE_SIGNING_SECRET;
@@ -40,7 +40,7 @@ export function readSession(token: unknown): Session | null {
     const session = value as Session;
     const age = Date.now() - session.issuedAt;
     if (!/^[0-9a-f]{24}$/.test(session.id) || !/^[A-Z0-9#_-]{4,32}$/.test(session.playerId) || !["crosswords", "puzzle"].includes(session.game) ||
-        (session.game === "puzzle" && session.pictureId !== undefined && session.pictureId !== 1 && session.pictureId !== 2) ||
+        (session.game === "puzzle" && session.pictureId !== undefined && !validPuzzlePictureId(session.pictureId)) ||
         (session.game === "crosswords" && session.pictureId !== undefined) ||
         !Number.isSafeInteger(session.seed) || session.seed < 1 || session.seed > 0xffffffff ||
         !Number.isFinite(age) || age < 0 || age > MAX_AGE_MS) return null;

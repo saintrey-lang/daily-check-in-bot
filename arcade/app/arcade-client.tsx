@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { adjacent, crossword, puzzlePicture, puzzlePictures, solvedBoard, type Game, type PuzzlePictureId } from "@/lib/games";
+import { adjacent, crossword, puzzlePicture, puzzlePictures, solvedBoard, type Game, type PuzzlePicture, type PuzzlePictureId } from "@/lib/games";
 
 type Result = { score: number; elapsed: number; moves?: number; messageUrl: string };
 type Entry = (typeof crossword.entries)[number];
+type Snapshot = { game: Game; token: string; state: { letters: Record<string, string> } | { moves: number[] }; revision: number; completed: boolean };
 
 const entries = crossword.entries;
 const cellEntries = new Map<string, number[]>();
@@ -28,6 +29,9 @@ function formatTime(seconds: number): string {
 export default function Arcade({ gameId, playerName }: { gameId: string; playerName: string }) {
   const [game, setGame] = useState<Game | null>(null);
   const [pictureId, setPictureId] = useState<PuzzlePictureId>(1);
+  const [pictures, setPictures] = useState<PuzzlePicture[]>([...puzzlePictures]);
+  const [nextBefore, setNextBefore] = useState<string | null>(null);
+  const [pictureWarning, setPictureWarning] = useState("");
   const [token, setToken] = useState("");
   const [board, setBoard] = useState<number[]>([]);
   const [moves, setMoves] = useState<number[]>([]);
@@ -39,7 +43,66 @@ export default function Arcade({ gameId, playerName }: { gameId: string; playerN
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const [points, setPoints] = useState(0);
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const snapshotRef = useRef<Snapshot | null>(null);
+  const exitingRef = useRef(false);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/puzzle-pictures").then((response) => response.json()).then((data) => {
+      if (!alive) return;
+      if (Array.isArray(data.pictures)) setPictures(data.pictures);
+      setNextBefore(data.nextBefore || null);
+      setPictureWarning(data.warning || "");
+    }).catch(() => { if (alive) setPictureWarning("Could not load pictures from the Discord channel."); });
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    snapshotRef.current = game && token ? { game, token, state: game === "crosswords" ? { letters } : { moves }, revision, completed: !!result } : null;
+  }, [game, token, letters, moves, revision, result]);
+
+  useEffect(() => {
+    const snapshot = snapshotRef.current;
+    if (!snapshot || snapshot.completed || snapshot.revision === 0) return;
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch("/api/progress", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: snapshot.token, state: snapshot.state, revision: snapshot.revision }),
+        });
+        const data = await response.json();
+        if (response.ok && snapshotRef.current?.token === snapshot.token && snapshotRef.current.revision === snapshot.revision) setPoints(data.points);
+      } catch { /* Exit & Share retries with the latest state. */ }
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [revision, token]);
+
+  useEffect(() => {
+    const onPageHide = () => {
+      const snapshot = snapshotRef.current;
+      if (!snapshot || snapshot.completed || exitingRef.current) return;
+      const body = JSON.stringify({ token: snapshot.token, state: snapshot.state, revision: snapshot.revision });
+      navigator.sendBeacon("/api/progress/exit", new Blob([body], { type: "application/json" }));
+    };
+    window.addEventListener("pagehide", onPageHide);
+    return () => window.removeEventListener("pagehide", onPageHide);
+  }, []);
+
+  async function loadMorePictures() {
+    if (!nextBefore) return;
+    try {
+      const response = await fetch(`/api/puzzle-pictures?before=${encodeURIComponent(nextBefore)}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not load more pictures.");
+      setPictures((previous) => [...previous, ...data.pictures.filter((item: PuzzlePicture) => !previous.some((existing) => existing.id === item.id))]);
+      setNextBefore(data.nextBefore || null);
+      setPictureWarning(data.warning || "");
+    } catch { setPictureWarning("Could not load more pictures."); }
+  }
 
   useEffect(() => {
     if (!startedAt || result) return;
@@ -47,7 +110,28 @@ export default function Arcade({ gameId, playerName }: { gameId: string; playerN
     return () => window.clearInterval(interval);
   }, [startedAt, result]);
 
-  async function startGame(nextGame: Game, nextPictureId: PuzzlePictureId = 1) {
+  async function saveCurrent(): Promise<boolean> {
+    const snapshot = snapshotRef.current;
+    if (!snapshot || snapshot.completed || snapshot.revision === 0) return true;
+    try {
+      const response = await fetch("/api/progress", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: snapshot.token, state: snapshot.state, revision: snapshot.revision }),
+      });
+      if (!response.ok) throw new Error("Could not save progress. Try again.");
+      return true;
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not save progress.");
+      return false;
+    }
+  }
+
+  async function startGame(nextGame: Game, nextPictureId: PuzzlePictureId = 1, newGame = false) {
+    if (!newGame && nextGame === game && token) {
+      document.querySelector(".play-area")?.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+    if (!await saveCurrent()) return;
     setLoading(true);
     setError("");
     setResult(null);
@@ -60,12 +144,32 @@ export default function Arcade({ gameId, playerName }: { gameId: string; playerN
     setSelected(1);
     setClock(0);
     setStartedAt(0);
+    setRevision(0);
+    setPoints(0);
+    snapshotRef.current = null;
+    exitingRef.current = false;
     try {
-      const response = await fetch("/api/session", {
+      let response: Response | null = !newGame ? await fetch(`/api/progress?game=${nextGame}`) : null;
+      let data = response ? await response.json() : null;
+      if (response && !response.ok) throw new Error(data.error || "Could not restore progress.");
+      if (data?.progress) {
+        const saved = data.progress;
+        setToken(saved.token);
+        setLetters(saved.state.letters || {});
+        setMoves(saved.state.moves || []);
+        setBoard(saved.board || []);
+        setPictureId(saved.pictureId || 1);
+        setRevision(saved.revision);
+        setPoints(saved.points);
+        setStartedAt(saved.startedAt);
+        setClock(Math.floor((Date.now() - saved.startedAt) / 1000));
+        return;
+      }
+      response = await fetch("/api/session", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ game: nextGame, ...(nextGame === "puzzle" ? { pictureId: nextPictureId } : {}) }),
       });
-      const data = await response.json();
+      data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not start the game.");
       setToken(data.token);
       setBoard(data.board || []);
@@ -78,8 +182,37 @@ export default function Arcade({ gameId, playerName }: { gameId: string; playerN
   }
 
   async function signOut() {
-    await fetch("/api/logout", { method: "POST" });
+    if (!await exitAndShare(false)) return;
+    await fetch("/api/logout", { method: "POST", headers: window.location.hostname.endsWith(".discordsays.com") ? { "X-Arcade-Activity": "1" } : {} });
     window.location.assign("/");
+  }
+
+  async function exitAndShare(close = true): Promise<boolean> {
+    const snapshot = snapshotRef.current;
+    if (!snapshot || snapshot.completed) {
+      if (close && document.documentElement.classList.contains("discord-activity")) window.dispatchEvent(new Event("arcade:close"));
+      return true;
+    }
+    setSharing(true);
+    setError("");
+    try {
+      const response = await fetch("/api/progress/exit", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: snapshot.token, state: snapshot.state, revision: snapshot.revision }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not share your points.");
+      exitingRef.current = true;
+      setPoints(data.points ?? points);
+      if (close) {
+        if (document.documentElement.classList.contains("discord-activity")) window.dispatchEvent(new Event("arcade:close"));
+        else { setGame(null); setToken(""); }
+      }
+      return true;
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not share your points.");
+      return false;
+    } finally { setSharing(false); }
   }
 
   async function submitScore() {
@@ -94,6 +227,7 @@ export default function Arcade({ gameId, playerName }: { gameId: string; playerN
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not submit your score.");
       setResult(data);
+      exitingRef.current = true;
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Could not submit your score.");
     } finally {
@@ -109,6 +243,7 @@ export default function Arcade({ gameId, playerName }: { gameId: string; playerN
   function writeLetter(key: string, value: string) {
     const letter = value.replace(/[^a-z]/gi, "").slice(-1).toUpperCase();
     setLetters((previous) => ({ ...previous, [key]: letter }));
+    setRevision((current) => current + 1);
     if (!letter) return;
     const entry = entries.find((candidate) => candidate.number === selected) || entries[0];
     const sequence = keysForEntry(entry);
@@ -140,6 +275,7 @@ export default function Arcade({ gameId, playerName }: { gameId: string; playerN
     [next[index], next[blank]] = [next[blank], next[index]];
     setBoard(next);
     setMoves((previous) => [...previous, index]);
+    setRevision((current) => current + 1);
   }
 
   const puzzleSolved = board.length === 9 && board.every((tile, index) => tile === solvedBoard[index]);
@@ -151,7 +287,8 @@ export default function Arcade({ gameId, playerName }: { gameId: string; playerN
   const correctClues = [...clueStatuses.values()].filter((status) => status === "correct").length;
   const completed = game === "crosswords" ? correctClues === entries.length : puzzleSolved;
   const currentEntry = entries.find((candidate) => candidate.number === selected) || entries[0];
-  const currentPicture = puzzlePicture(pictureId);
+  const currentPicture = pictures.find((picture) => picture.id === pictureId) || puzzlePicture(pictureId);
+  const pictureNumber = pictures.findIndex((picture) => picture.id === pictureId) + 1;
 
   return (
     <main>
@@ -188,8 +325,8 @@ export default function Arcade({ gameId, playerName }: { gameId: string; playerN
         </div>
 
         {game && <section className="play-area" aria-live="polite">
-          <div className="play-heading"><div><span className="overline">02 / NOW PLAYING</span><h2>{game === "crosswords" ? "Golden Spatula Crosswords" : "Golden Spatula Puzzle"}</h2></div><button type="button" className="text-button" onClick={() => startGame(game, pictureId)}>↻ NEW GAME</button></div>
-          <div className="play-meta"><span>⏱ TIME <strong>{formatTime(clock)}</strong></span><span>{game === "crosswords" ? `▦ FILLED ${crosswordFilled}/${cellEntries.size}` : `↗ MOVES ${moves.length}`}</span>{game === "crosswords" ? <span className="clue-progress" aria-live="polite">✓ CORRECT <strong>{correctClues}/{entries.length}</strong></span> : <span>IMAGE <strong>{pictureId}/{puzzlePictures.length}</strong></span>}</div>
+          <div className="play-heading"><div><span className="overline">02 / NOW PLAYING</span><h2>{game === "crosswords" ? "Golden Spatula Crosswords" : "Golden Spatula Puzzle"}</h2></div><button type="button" className="text-button" onClick={() => startGame(game, pictureId, true)}>↻ NEW GAME</button></div>
+          <div className="play-meta"><span>⏱ TIME <strong>{formatTime(clock)}</strong></span><span>{game === "crosswords" ? `▦ FILLED ${crosswordFilled}/${cellEntries.size}` : `↗ MOVES ${moves.length}`}</span>{game === "crosswords" ? <span className="clue-progress" aria-live="polite">✓ CORRECT <strong>{correctClues}/{entries.length}</strong></span> : <span>IMAGE <strong>{pictureNumber || "–"}/{pictures.length}</strong></span>}<span>POINTS <strong>{points.toLocaleString("en-US")}</strong></span></div>
           {loading ? <div className="loading">SETTING UP YOUR GAME…</div> : token && <>
             {game === "crosswords" ? <div className="crossword-layout">
               <div className="grid-wrap"><div className="crossword-grid" role="group" aria-label="Crossword grid">
@@ -214,16 +351,19 @@ export default function Arcade({ gameId, playerName }: { gameId: string; playerN
               </div>
               <div className="puzzle-instructions">
                 <span className="overline">PUZZLE PICTURES</span>
-                <div className="picture-choices">{puzzlePictures.map((picture) => <button type="button" key={picture.id} className={`picture-choice ${picture.id === pictureId ? "selected" : ""}`} aria-pressed={picture.id === pictureId} onClick={() => startGame("puzzle", picture.id)}><img src={picture.src} alt="" /><span>{picture.label}</span></button>)}</div>
+                <div className="picture-choices">{pictures.map((picture) => <button type="button" key={picture.id} className={`picture-choice ${picture.id === pictureId ? "selected" : ""}`} aria-pressed={picture.id === pictureId} onClick={() => startGame("puzzle", picture.id, true)}><img src={picture.src} alt="" /><span>{picture.label}</span></button>)}</div>
+                {pictureWarning && <p className="picture-warning" role="status">{pictureWarning}</p>}
+                {nextBefore && <button type="button" className="text-button load-pictures" onClick={loadMorePictures}>LOAD MORE PICTURES ↗</button>}
                 <span className="overline">HOW TO PLAY</span><h3>Piece it<br /><em>together.</em></h3>
                 <p>Tap a tile next to the empty square to slide it. Arrange all eight tiles in order to reveal the selected image.</p>
                 <div className="goal-preview"><img src={currentPicture.src} alt={`Completed ${currentPicture.label} puzzle`} /><span>YOUR TARGET IMAGE ↗</span></div>
               </div>
             </div>}
 
-            <div className="score-panel"><div><span className="overline">03 / CLAIM YOUR SCORE</span><h3>{result ? "A golden finish!" : completed ? "Ready to claim your score?" : game === "crosswords" && crosswordFilled === cellEntries.size ? "Check your incorrect answers" : "Finish the game to unlock your score"}</h3><p>{result ? "Your completed score has been posted to Discord." : `Your score will be posted as ${playerName}. ${game === "puzzle" ? "The completed puzzle image will appear with it." : "Names are entered by players and are not verified Discord accounts."}`}</p></div>
+            <div className="score-panel"><div><span className="overline">03 / SHARE YOUR POINTS</span><h3>{result ? "A golden finish!" : completed ? "Ready to claim your score?" : game === "crosswords" && crosswordFilled === cellEntries.size ? "Check your incorrect answers" : "Progress saved as you play"}</h3><p>{result ? "Your completed score has been posted to Discord." : `Playing as ${playerName}. Exit & Share posts your current points and saves this game, so you can continue next time. Closing the Discord window also tries to post automatically.`}</p></div>
               {result ? <div className="result"><strong>{result.score.toLocaleString("en-US")}</strong><span>POINTS · {formatTime(result.elapsed)}{result.moves ? ` · ${result.moves} MOVES` : ""}</span><a href={result.messageUrl} target="_blank" rel="noopener noreferrer">VIEW DISCORD SCORE ↗</a></div> : <div className="score-form"><span className="score-player-label">PLAYER</span><strong className="score-player">{playerName}</strong><button type="button" onClick={submitScore} disabled={!completed || submitting}>{submitting ? "POSTING SCORE…" : "SEND SCORE TO DISCORD →"}</button></div>}
             </div>
+            {!result && <div className="exit-bar"><span>CURRENT POINTS: <strong>{points.toLocaleString("en-US")}</strong></span><button type="button" onClick={() => exitAndShare()} disabled={sharing || submitting}>{sharing ? "SHARING POINTS…" : "EXIT & SHARE CURRENT POINTS →"}</button></div>}
           </>}
           {error && <p className="error" role="alert">{error}</p>}
         </section>}

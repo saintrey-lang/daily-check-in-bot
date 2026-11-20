@@ -44,3 +44,29 @@ footer .brand strong{font-size:11px}
 .score-player-label{font-size:10px;font-weight:800;letter-spacing:1.5px;color:var(--mint)}
 .score-player{font:700 19px 'Space Grotesk',sans-serif;color:white;overflow-wrap:anywhere}
 @media(max-width:700px){.picture-choices{grid-template-columns:1fr 1fr}.picture-choice{flex-direction:column;align-items:flex-start}.picture-choice img{width:100%;height:80px}}
+
+.picture-warning{font-size:12px;color:#ffd3a5;line-height:1.5}
+.load-pictures{padding:10px 0 24px}
+.exit-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:12px;padding:17px 20px;border:1px solid #5b528e;border-radius:12px;background:#211d50;font-size:11px;font-weight:800;letter-spacing:1px}
+.exit-bar strong{color:var(--gold);font-size:18px}
+.exit-bar button{border:0;border-radius:7px;background:var(--mint);color:#171333;min-height:42px;padding:10px 16px;font-size:10px;letter-spacing:1px;font-weight:800}
+.exit-bar button:disabled{opacity:.55;cursor:wait}
+.activity-error{padding:12px 20px;text-align:center;background:#6a2944;color:#fff0f5;font-size:12px}
+@media(max-width:700px){.exit-bar{flex-direction:column;align-items:stretch}.exit-bar button{width:100%}}
+
+.discord-activity .site-header{height:65px;padding:9px 24px}
+.discord-activity .hero{min-height:0;padding:30px 32px;grid-template-columns:1fr 130px}
+.discord-activity .hero h1{font-size:clamp(30px,4.5vw,45px);margin:12px 0 10px;white-space:normal}
+.discord-activity .hero p{font-size:13px}
+.discord-activity .hero-tags{margin-top:14px}
+.discord-activity .hero-art{min-height:120px}
+.discord-activity .hero-logo{width:145px}
+.discord-activity .content{padding:32px 20px 50px}
+.discord-activity .game-card{padding:16px;min-height:0}
+.discord-activity .card-banner{aspect-ratio:3/1;margin:10px 0}
+.discord-activity .game-card h3{font-size:19px;margin:8px 0}
+.discord-activity .game-card p{font-size:11px;margin-bottom:8px}
+.discord-activity .play-area{margin-top:28px;padding-top:26px}
+.discord-activity .gate-layout{padding:35px 22px 50px}
+.discord-activity .gate-intro h1{font-size:clamp(48px,8vw,85px)}
+@media(max-width:700px){.discord-activity .hero{display:block;padding:24px 20px}.discord-activity .hero-art{display:none}.discord-activity .hero-tags{display:none}.discord-activity .content{padding:24px 14px 45px}.discord-activity .game-cards{grid-template-columns:1fr 1fr;gap:8px}.discord-activity .game-card{padding:10px}.discord-activity .card-banner{aspect-ratio:1.3}.discord-activity .game-card h3{font-size:15px}.discord-activity .game-card p{display:none}.discord-activity .card-kind{font-size:8px;letter-spacing:.3px}.discord-activity .card-cta{font-size:8px;letter-spacing:0}.discord-activity .gate-card{padding:20px}}

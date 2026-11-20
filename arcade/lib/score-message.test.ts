@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildScoreMessage } from "./score-message";
+import { buildProgressMessage, buildScoreMessage } from "./score-message";
 
 describe("Discord score messages", () => {
   it("includes the entry name and score for crosswords", () => {
@@ -16,5 +16,13 @@ describe("Discord score messages", () => {
     expect(message.embeds?.[0]?.image.url).toBe("https://golden-spatula-arcade.vercel.app/puzzle-1.webp");
     expect(buildScoreMessage({ game: "puzzle", name: "Saint", score: 1000, elapsed: 60, pictureId: 2 }).embeds?.[0]?.image.url)
       .toBe("https://golden-spatula-arcade.vercel.app/puzzle-2.png");
+  });
+
+  it("reports partial points and the Discord channel puzzle image on exit", () => {
+    const pictureId = "discord:1573243616925712495:1573243616925712496";
+    const message = buildProgressMessage({ game: "puzzle", name: "Saint", gameId: "SAINT1", points: 420, detail: "12 moves · in progress", pictureId });
+    expect(message.content).toContain("Current points: **420**");
+    expect(message.content).toContain("Player: **Saint**");
+    expect(message.embeds?.[0]?.image.url).toContain("/api/puzzle-image?messageId=1573243616925712495&attachmentId=1573243616925712496");
   });
 });
