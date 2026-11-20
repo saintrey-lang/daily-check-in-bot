@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { channelAttachment } from "./puzzle-channel";
 import { discordPictureId } from "./games";
 
-export const SCORE_CHANNEL_ID = "1293667554866499676";
+export const SCORE_CHANNEL_ID = "1573345901513146448";
 const GUILD_ID = "1293483684888055840";
 const IMAGE_ORIGIN = "https://golden-spatula-arcade.vercel.app";
 const IMAGE_TYPES: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif" };

@@ -3,6 +3,10 @@ import { postArcadeMessage, SCORE_CHANNEL_ID } from "./discord-post";
 import { buildProgressMessage, buildScoreMessage } from "./score-message";
 
 describe("Arcade score channel", () => {
+  it("routes reports to the designated score channel", () => {
+    expect(SCORE_CHANNEL_ID).toBe("1573345901513146448");
+  });
+
   afterEach(() => {
     delete process.env.DISCORD_BOT_TOKEN;
     vi.unstubAllGlobals();
