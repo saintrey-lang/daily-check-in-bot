@@ -12,7 +12,7 @@ export default function PrivacyPage() {
 
     <section><h2>Data we handle</h2>
       <ul>
-        <li><strong>Arcade entry:</strong> The name and Game ID you enter, a salted hash of your four-digit PIN, account creation and last sign-in times, failed PIN attempts, and temporary lockout time. A signed cookie contains your Game ID, name, and session value and expires after 24 hours. We do not ask for your Discord account password.</li>
+        <li><strong>Arcade entry:</strong> In the Discord Activity, we request your Discord basic profile with the <code>identify</code> permission. We store your Discord user ID, username, linked Golden Spatula Game ID, and link and last-seen times. We use a temporary signed cookie while you link your Game ID. Older Arcade entries require their previous PIN once to link; website entries still use a name, Game ID, and a salted hash of a four-digit PIN, along with account creation, sign-in, failed attempt, and lockout times. A signed play cookie contains your Game ID and name (and Discord ID for linked entries) and expires after 24 hours. We do not ask for your Discord password.</li>
         <li><strong>Arcade play:</strong> Your game and picture choice, crossword letters or puzzle moves, current points, saved session and revision, update and completion times, and final score, elapsed time, and move count. We briefly use an IP address in server memory to limit sign-in attempts; the hosting provider may also create normal request logs.</li>
         <li><strong>Discord check-ins:</strong> Discord user ID, username, display name, check-in code and date, streak and milestone, and relevant message and channel IDs. The bot reads messages in the configured check-in channel to recognize the daily code.</li>
         <li><strong>Starplayer submissions:</strong> Discord user ID, username and display name, task category, title and date, a link or uploaded file, submission time, and the submission message and channel references.</li>
@@ -24,7 +24,7 @@ export default function PrivacyPage() {
 
     <section><h2>How we use and share it</h2>
       <p>We use these records to authenticate Arcade entries, save and resume games, calculate points and scores, post results, run check-ins and Starplayer submissions, manage creator program submissions and reviews, prevent duplicate or abusive activity, and make server reports available to authorized operators.</p>
-      <p>The bot posts Arcade results to the configured Discord channels. A completed result shows the entered name, score, time, and for puzzles the selected image. A partial exit post also shows the Game ID and current points. Check-in, Starplayer, creator review, and leaderboard posts are visible to people with access to their Discord channels. Private command replies and DMs go to the relevant user. Discord channel permissions control who can see channel posts.</p>
+      <p>The bot posts Arcade results to the configured Discord channels. A completed result shows the Discord username for Activity players (or the entered name for website players), score, time, and for puzzles the selected image. A partial exit post also shows the Game ID and current points. Check-in, Starplayer, creator review, and leaderboard posts are visible to people with access to their Discord channels. Private command replies and DMs go to the relevant user. Discord channel permissions control who can see channel posts.</p>
     </section>
 
     <section><h2>Storage and service providers</h2>
@@ -32,7 +32,7 @@ export default function PrivacyPage() {
     </section>
 
     <section><h2>Retention and your choices</h2>
-      <p>The current implementation does not automatically delete Google Sheet records after a fixed period. Records remain until we remove them or establish a retention schedule. Discord posts and files may remain in their channels separately from Sheet records. The Arcade cookie expires after 24 hours; short-lived sign-in rate-limit entries are held in server memory.</p>
+      <p>The current implementation does not automatically delete Google Sheet records after a fixed period. Records remain until we remove them or establish a retention schedule. Discord posts and files may remain in their channels separately from Sheet records. The Arcade play cookie expires after 24 hours, the temporary Discord link cookie after 10 minutes, and short-lived sign-in rate-limit entries are held in server memory. Discord OAuth access tokens are used for sign-in and are not saved to the Sheet.</p>
       <p>Email <a href="mailto:saintrey@whim.sg">saintrey@whim.sg</a> to request access, correction, or deletion of records we control. We may need to verify that a request relates to your Game ID or Discord account before acting. Discord channel posts may need to be removed separately.</p>
     </section>
 

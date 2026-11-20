@@ -72,6 +72,11 @@ export class ArcadePlayersStore {
     return index < 0 ? null : { row: rows[index], number: index + 2 };
   }
 
+  async exists(gameId: string): Promise<boolean> {
+    await this.prepare();
+    return !!await this.find(gameId);
+  }
+
   async register(gameId: string, pin: string, name: string): Promise<void> {
     await this.prepare();
     if (await this.find(gameId)) throw new EntryError("That Game ID already has a PIN. Choose Sign in instead.", 409);

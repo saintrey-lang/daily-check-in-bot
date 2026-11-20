@@ -16,7 +16,7 @@ export function validPin(value: unknown): value is string {
 export function normalizePlayerName(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const name = value.trim();
-  return /^[\p{L}\p{N} _.-]{2,24}$/u.test(name) ? name : null;
+  return /^[\p{L}\p{N} _.-]{2,32}$/u.test(name) ? name : null;
 }
 
 function signingKey(): string {
@@ -48,15 +48,15 @@ export function checkPin(pin: string, encoded: string): boolean {
   return timingSafeEqual(actual, expected);
 }
 
-export type PlayerIdentity = { gameId: string; name: string };
+export type PlayerIdentity = { gameId: string; name: string; discordId?: string };
 type PlayerSession = PlayerIdentity & { issuedAt: number; nonce: string };
 
 function sign(payload: string): Buffer {
   return createHmac("sha256", signingKey()).update(`arcade-player\0${payload}`).digest();
 }
 
-export function createPlayerCookie(gameId: string, name: string): string {
-  const session: PlayerSession = { gameId, name, issuedAt: Date.now(), nonce: randomBytes(8).toString("hex") };
+export function createPlayerCookie(gameId: string, name: string, discordId?: string): string {
+  const session: PlayerSession = { gameId, name, ...(discordId ? { discordId } : {}), issuedAt: Date.now(), nonce: randomBytes(8).toString("hex") };
   const payload = Buffer.from(JSON.stringify(session)).toString("base64url");
   return `${payload}.${sign(payload).toString("base64url")}`;
 }
@@ -73,8 +73,9 @@ export function readPlayerCookie(value: unknown): PlayerIdentity | null {
     const age = Date.now() - session.issuedAt;
     if (!normalizeGameId(session.gameId) || session.gameId !== normalizeGameId(session.gameId) ||
       !normalizePlayerName(session.name) || session.name !== normalizePlayerName(session.name) ||
+      (session.discordId !== undefined && !/^\d{17,20}$/.test(session.discordId)) ||
       !/^[0-9a-f]{16}$/.test(session.nonce) || !Number.isFinite(age) || age < 0 || age > PLAYER_SESSION_AGE_SECONDS * 1000) return null;
-    return { gameId: session.gameId, name: session.name };
+    return { gameId: session.gameId, name: session.name, ...(session.discordId ? { discordId: session.discordId } : {}) };
   } catch {
     return null;
   }

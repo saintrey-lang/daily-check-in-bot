@@ -39,4 +39,14 @@ describe("arcade player entry", () => {
     vi.advanceTimersByTime(24 * 60 * 60 * 1000 + 1);
     expect(readPlayerCookie(cookie)).toBeNull();
   });
+
+  it("ties a Discord play cookie to the verified Discord ID", () => {
+    const cookie = createPlayerCookie("00123456", "saintrey", "1545258381936427039");
+    expect(readPlayerCookie(cookie)).toEqual({ gameId: "00123456", name: "saintrey", discordId: "1545258381936427039" });
+    const [payload, signature] = cookie.split(".");
+    const changed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    changed.discordId = "1545258381936427040";
+    expect(readPlayerCookie(`${Buffer.from(JSON.stringify(changed)).toString("base64url")}.${signature}`)).toBeNull();
+    expect(normalizePlayerName("a".repeat(32))).toBe("a".repeat(32));
+  });
 });

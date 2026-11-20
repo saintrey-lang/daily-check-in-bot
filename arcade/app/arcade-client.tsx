@@ -26,7 +26,7 @@ function formatTime(seconds: number): string {
   return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
-export default function Arcade({ gameId, playerName }: { gameId: string; playerName: string }) {
+export default function Arcade({ gameId, playerName, discordId }: { gameId: string; playerName: string; discordId?: string }) {
   const [game, setGame] = useState<Game | null>(null);
   const [pictureId, setPictureId] = useState<PuzzlePictureId>(1);
   const [pictures, setPictures] = useState<PuzzlePicture[]>([...puzzlePictures]);
@@ -291,7 +291,7 @@ export default function Arcade({ gameId, playerName }: { gameId: string; playerN
   const pictureNumber = pictures.findIndex((picture) => picture.id === pictureId) + 1;
 
   return (
-    <main>
+    <main data-arcade-discord-id={discordId || ""} data-arcade-player-name={playerName}>
       <header className="site-header">
         <a href="/" className="brand" aria-label="Golden Spatula Arcade home"><img className="brand-logo" src="/golden-spatula-logo.png" alt="" /><strong>ARCADE</strong></a>
         <div className="header-actions"><span className="header-pill"><span className="live-dot" /> {playerName} · GAME ID: {gameId}</span><button type="button" onClick={signOut} className="signout">SIGN OUT</button></div>

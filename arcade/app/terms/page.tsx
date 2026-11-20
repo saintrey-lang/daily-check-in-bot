@@ -15,7 +15,7 @@ export default function TermsPage() {
     </section>
 
     <section><h2>2. Your participation</h2>
-      <p>You must meet Discord&apos;s minimum age requirement and follow the rules of the server where you use the application. Use your own Game ID and name in the Arcade. Keep your four-digit Arcade PIN private. Do not try to access another player&apos;s entry, manipulate a score, overload the service, or submit unlawful, harmful, or infringing material.</p>
+      <p>You must meet Discord&apos;s minimum age requirement and follow the rules of the server where you use the application. Link only your own Game ID to your Discord account. If you have an older Arcade entry or use the direct website, keep your four-digit Arcade PIN private. Do not try to access another player&apos;s entry, manipulate a score, overload the service, or submit unlawful, harmful, or infringing material.</p>
     </section>
 
     <section><h2>3. Scores, check-ins, and rewards</h2>
